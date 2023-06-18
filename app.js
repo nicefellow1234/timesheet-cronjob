@@ -303,8 +303,6 @@ const renderUsersLoggings = async (month = null, year = null, invoice = null) =>
             const task = await Task.findOne({ rbTaskId: userLogging.rbTaskId }).exec();
             const project = await Project.findOne({ rbProjectId: task.rbProjectId }).exec();
             var loggingData = {
-                startDate,
-                endDate,
                 rbCommentId: userLogging.rbCommentId,
                 rbProjectId: task.rbProjectId,
                 rbProjectName: project.name,
