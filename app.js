@@ -333,6 +333,14 @@ app.get('/authorize', async (req, res) => {
     res.json(accessToken);
 });
 
+app.get('/sync-data', async (req, res) => {
+    syncRedboothProjects()
+      .then(() => syncRedboothUsers())
+      .then(() => syncRedboothUsersTasks())
+      .then(() => syncRedboothTasksLoggings())
+      .then(() => res.send('Synchronization has been completed!'));
+});
+
 app.get('/render-data', async (req, res) => {
     const { month, year, invoice } = req.query;
     if (month != undefined && year != undefined && invoice != undefined) {
@@ -352,10 +360,4 @@ app.listen(port, () => {
 // syncRedboothProjects();
 // syncRedboothUsers();
 // syncRedboothUsersTasks();
-// syncRedboothTasksLoggings();
-
-// syncRedboothProjects()
-//   .then(() => syncRedboothUsers())
-//   .then(() => syncRedboothUsersTasks())
-//   .then(() => syncRedboothTasksLoggings());
 // syncRedboothTasksLoggings();
