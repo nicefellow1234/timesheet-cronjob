@@ -208,6 +208,7 @@ const syncRedboothUsersTasks = async () => {
                 params: {
                     access_token: accessToken.access_token,
                     assigned_user_id: user.rbUserId,
+                    archived: true,
                     order: 'created_at-DESC'
                 }
             });
