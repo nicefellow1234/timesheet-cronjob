@@ -30,7 +30,8 @@ const User = mongoose.model('users', userSchema);
 const taskSchema = new mongoose.Schema({
     rbTaskId: Number,
     rbProjectId: Number,
-    name: String
+    name: String,
+    updatedAt: Number
 });
 const Task = mongoose.model('tasks', taskSchema);
 
@@ -76,7 +77,8 @@ const saveTask = async (taskData) => {
         const task = new Task({
             rbTaskId: taskData.id,
             rbProjectId: taskData.project_id,
-            name: taskData.name
+            name: taskData.name,
+            updatedAt: taskData.updated_at
         });
         await task.save();
     }
@@ -105,6 +107,9 @@ const COMMENTS_ENDPOINT = '/comments';
 const client_id = process.env.RB_CLIENT_ID;
 const client_secret = process.env.RB_CLIENT_SECRET;
 const redirect_uri = process.env.RB_REDIRECT_URI;
+const last_year_start_date = Math.floor(new Date(new Date().getFullYear() - 1, 0, 1).valueOf() / 1000);
+const current_year_start_date = Math.floor(new Date(new Date().getFullYear(), 0, 1).valueOf() / 1000);
+const current_end_date = Math.floor(new Date().valueOf() / 1000);
 
 const fetchAccessToken = async (refreshToken = null, code = null) => {
     var accessToken = null;
@@ -199,26 +204,31 @@ const syncRedboothUsers = async () => {
     console.log('All of the users have been successfully saved!');
 }
 
-const syncRedboothUsersTasks = async () => {
+const syncRedboothProjectsTasks = async () => {
     const accessToken =  await getAccessToken();
-    const users = await User.find();
-    for (const user of users) {
-        try {
-            const response = await axios.get(REDBOOTH_API_HOST + TASKS_ENDPOINT, {
-                params: {
-                    access_token: accessToken.access_token,
-                    assigned_user_id: user.rbUserId,
-                    archived: true,
-                    order: 'created_at-DESC'
+    const projects = await Project.find();
+    for (const project of projects) {
+        for (const v of [true, false]) {
+            try {
+                const response = await axios.get(REDBOOTH_API_HOST + TASKS_ENDPOINT, {
+                    params: {
+                        access_token: accessToken.access_token,
+                        project_id: project.rbProjectId,
+                        archived: v,
+                        order: 'updated_at-DESC'
+                        //created_from: last_year_start_date,
+                        //created_to: current_end_date,
+                        //order: 'created_at-DESC'
+                    }
+                });
+                const tasks = response.data;
+                for (const task of tasks) {
+                    await saveTask(task);
                 }
-            });
-            const tasks = response.data;
-            for (const task of tasks) {
-                await saveTask(task);
+                console.log(`All ${v ? `resolved` : 'unresolved'} tasks saved successfully for ${project.name} project !`);
+            } catch (err) {
+                console.error('Error fetching Redbooth tasks: ',err);
             }
-            console.log(`All tasks saved successfully for ${user.email} user !`);
-        } catch (err) {
-            console.error('Error fetching Redbooth tasks: ',err);
         }
     }
     console.log('All of the tasks have been successfully saved!');
@@ -226,7 +236,7 @@ const syncRedboothUsersTasks = async () => {
 
 const syncRedboothTasksLoggings = async () => {
     const accessToken =  await getAccessToken();
-    const tasks = await Task.find();
+    const tasks = await Task.find({ updatedAt: { $gt: current_year_start_date } });
     for (const task of tasks) {
         try {
             const response = await axios.get(REDBOOTH_API_HOST + COMMENTS_ENDPOINT, {
@@ -234,6 +244,8 @@ const syncRedboothTasksLoggings = async () => {
                     access_token: accessToken.access_token,
                     target_type: 'Task',
                     target_id: task.rbTaskId,
+                    created_from: current_year_start_date,
+                    created_to: current_end_date,
                     order: 'created_at-DESC'
                 }
             });
@@ -297,8 +309,10 @@ const renderUsersLoggings = async (month = null, year = null, invoice = null) =>
         var userLoggingsData = [];
         const userLoggings = await Logging.find({ rbUserId: user.rbUserId }).sort({createdAt: 'desc'}).exec();
         for (const userLogging of userLoggings) {
+            var loggingDate = new Date(userLogging.timeTrackingOn);
+            var loggingTimestamp = Math.floor(loggingDate.valueOf() / 1000);
             if (month && year 
-                && (userLogging.createdAt < startDate || userLogging.createdAt > endDate)) {
+                && (loggingTimestamp < startDate || loggingTimestamp > endDate)) {
                 continue;
             }
             const task = await Task.findOne({ rbTaskId: userLogging.rbTaskId }).exec();
@@ -310,8 +324,8 @@ const renderUsersLoggings = async (month = null, year = null, invoice = null) =>
                 rbTaskId: userLogging.rbTaskId,
                 rbTaskName: task.name,
                 loggingTime: toHoursAndMinutes(userLogging.minutes).totalTime,
-                loggingDate: new Date(userLogging.timeTrackingOn).toLocaleDateString("en-US"),
-                loggingTimestamp: Math.floor(new Date(userLogging.timeTrackingOn).valueOf() / 1000),
+                loggingDate: loggingDate.toLocaleDateString("en-US"),
+                loggingTimestamp,
                 createdAtDate: new Date(userLogging.createdAt * 1000).toLocaleDateString("en-US")
             };
             usertotalLoggedHours += userLogging.minutes;
@@ -335,7 +349,7 @@ app.get('/authorize', async (req, res) => {
 app.get('/sync-data', async (req, res) => {
     syncRedboothProjects()
       .then(() => syncRedboothUsers())
-      .then(() => syncRedboothUsersTasks())
+      .then(() => syncRedboothProjectsTasks())
       .then(() => syncRedboothTasksLoggings())
       .then(() => res.send('Synchronization has been completed!'));
 });
@@ -358,5 +372,5 @@ app.listen(port, () => {
 
 // syncRedboothProjects();
 // syncRedboothUsers();
-// syncRedboothUsersTasks();
+// syncRedboothProjectsTasks;
 // syncRedboothTasksLoggings();
