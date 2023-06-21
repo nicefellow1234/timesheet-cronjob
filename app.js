@@ -216,14 +216,14 @@ const syncRedboothProjectsTasks = async () => {
                         project_id: project.rbProjectId,
                         archived: v,
                         order: 'updated_at-DESC'
-                        //created_from: last_year_start_date,
-                        //created_to: current_end_date,
-                        //order: 'created_at-DESC'
                     }
                 });
                 const tasks = response.data;
                 for (const task of tasks) {
-                    await saveTask(task);
+                    // To ensure that we only store tasks which have been updated in current year
+                    if (task.updated_at >= current_year_start_date) {
+                        await saveTask(task);
+                    }
                 }
                 console.log(`All ${v ? `resolved` : 'unresolved'} tasks saved successfully for ${project.name} project !`);
             } catch (err) {
@@ -277,22 +277,26 @@ const toHoursAndMinutes = (totalMinutes) => {
     };
 }
 
-const getLastMonday = (month, year) => {
-    var d = new Date();
-    d.setHours(0, 0, 0);
-    if (year) { d.setFullYear(year); }
-    d.setDate(1); // Roll to the first day of ...
-    d.setMonth(month || d.getMonth() + 1); // ... the next month.
-    do { // Roll the days backwards until Monday.
-      d.setDate(d.getDate() - 1);
-    } while (d.getDay() !== 1);
-    return d;
+const getLastSundayOfMonth = (month, year) => {
+    // Create a new date object for the first day of the next month
+    var firstDayOfNextMonth = new Date(year, month - 1 + 1, 1);
+    // Subtract one day to get the last day of the current month
+    var lastDayOfMonth = new Date(firstDayOfNextMonth - 24 * 60 * 60 * 1000);
+    // Find the day of the week for the last day of the month (0 - Sunday, 1 - Monday, etc.)
+    var lastDayOfWeek = lastDayOfMonth.getDay();
+    // Calculate the number of days to subtract to get the last Sunday
+    var daysToSubtract = (lastDayOfWeek + 7 - 0) % 7;
+    // Subtract the number of days to get the last Sunday of the month
+    var lastSundayOfMonth = new Date(lastDayOfMonth - daysToSubtract * 24 * 60 * 60 * 1000);
+    // Set the time to the end of the day (23:59:59)
+    lastSundayOfMonth.setHours(23, 59, 59);
+    return lastSundayOfMonth;
 }
 
 const renderUsersLoggings = async (month = null, year = null, invoice = null) => {
     if (month && year && invoice) {
-        var startDate = Math.floor(getLastMonday(month - 1, year).valueOf() / 1000);
-        var endDate = Math.floor(getLastMonday(month, year).valueOf() / 1000);
+        var startDate = Math.floor(getLastSundayOfMonth(month - 1, year).valueOf() / 1000);
+        var endDate = Math.floor(getLastSundayOfMonth(month, year).valueOf() / 1000);
     } else {
         var startDate = Math.floor(new Date(year, month - 1, 1).valueOf() / 1000);
         var endDate = Math.floor(new Date(year, month, 0).valueOf() / 1000);
