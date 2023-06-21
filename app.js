@@ -4,61 +4,8 @@ const fs = require('fs');
 const express = require('express');
 const app = express();
 const port = 3000;
-const { Project, User, Task, Logging } = require('./common/db.js');
-
-const saveProject = async (projectData) => {
-    const checkProject = await Project.find({ rbProjectId: projectData.id }).exec();
-    if (checkProject.length == 0) {
-        const project = new Project({
-            rbProjectId: projectData.id,
-            name: projectData.name
-        });
-        await project.save();
-    }
-}
-
-const saveUser = async (userData) => {
-    const checkUser = await User.find({ rbUserId: userData.id }).exec();
-    if (checkUser.length == 0) {
-        const user = new User({
-            rbUserId: userData.id,
-            name: `${userData.first_name} ${userData.last_name}`,
-            username: userData.username,
-            email: userData.email,
-            password: Math.random().toString(36).slice(-8),
-            status: true
-        });
-        await user.save();
-    }
-}
-
-const saveTask = async (taskData) => {
-    const checkTask = await Task.find({ rbTaskId: taskData.id }).exec();
-    if (checkTask.length == 0) {
-        const task = new Task({
-            rbTaskId: taskData.id,
-            rbProjectId: taskData.project_id,
-            name: taskData.name,
-            updatedAt: taskData.updated_at
-        });
-        await task.save();
-    }
-}
-
-const saveLogging = async (loggingData) => {
-    const checkLogging = await Logging.find({ rbCommentId: loggingData.id }).exec();
-    if (checkLogging.length == 0) {
-        const logging = new Logging({
-            rbCommentId: loggingData.id,
-            rbUserId: loggingData.user_id,
-            rbTaskId: loggingData.target_id,
-            minutes: loggingData.minutes,
-            timeTrackingOn: loggingData.time_tracking_on,
-            createdAt: loggingData.created_at
-        });
-        await logging.save();
-    }
-}
+const { Project, User, Task, Logging, saveRecord } = require('./common/db.js');
+const { toHoursAndMinutes, getLastSundayOfMonth } = require('./common/util.js');
 
 const REDBOOTH_API_HOST = 'https://redbooth.com/api/3';
 const USERS_ENDPOINT = '/users';
@@ -119,23 +66,40 @@ const getAccessToken = async () => {
         console.log('Access token is expired!');
         return await fetchAccessToken(accessToken.refresh_token);
     } else {
-        console.log('Access token is still valid!');
         return accessToken;
     }
 }
 
-const syncRedboothProjects = async () => {
+const fetchRedboothData = async ({endpoint, endpointParams}) => {
     const accessToken =  await getAccessToken();
+    const response = await axios.get(REDBOOTH_API_HOST + endpoint, {
+        params: {
+            access_token: accessToken.access_token,
+            ...endpointParams
+        }
+    });
+    return response.data;
+}
+
+const syncRedboothProjects = async () => {
     try {
-        const response = await axios.get(REDBOOTH_API_HOST + PROJECTS_ENDPOINT, {
-            params: {
-                access_token: accessToken.access_token,
+        const projects = await fetchRedboothData({
+            endpoint: PROJECTS_ENDPOINT,
+            endpointParams: {
                 order: 'created_at-DESC'
             }
         });
-        const projects = response.data;
         for (const project of projects) {
-            await saveProject(project);
+            await saveRecord({
+                model: Project,
+                modelData: {
+                    rbProjectId: project.id,
+                    name: project.name
+                },
+                modelSearchData: { 
+                    rbProjectId: project.id 
+                }
+            });
             console.log(`Project with name ${[project.name]} has been successfully saved!`);
         }
         console.log('All projects saved successfully!');
@@ -146,17 +110,28 @@ const syncRedboothProjects = async () => {
 }
 
 const syncRedboothUsers = async () => {
-    const accessToken =  await getAccessToken();
     try {
-        const response = await axios.get(REDBOOTH_API_HOST + USERS_ENDPOINT, {
-            params: {
-                access_token: accessToken.access_token,
+        const users = await fetchRedboothData({
+            endpoint: USERS_ENDPOINT,
+            endpointParams: {
                 order: 'created_at-DESC'
             }
         });
-        const users = response.data;
         for (const user of users) {
-            await saveUser(user);
+            await saveRecord({
+                model: User,
+                modelData: {
+                    rbUserId: user.id,
+                    name: `${user.first_name} ${user.last_name}`,
+                    username: user.username,
+                    email: user.email,
+                    password: Math.random().toString(36).slice(-8),
+                    status: true
+                },
+                modelSearchData: { 
+                    rbUserId: user.id
+                 }
+            });
             console.log(`User with name ${user.first_name + ' ' + user.last_name} has been successfully saved!`);
         }
     } catch (err) {
@@ -166,24 +141,33 @@ const syncRedboothUsers = async () => {
 }
 
 const syncRedboothProjectsTasks = async () => {
-    const accessToken =  await getAccessToken();
     const projects = await Project.find();
     for (const project of projects) {
         for (const v of [true, false]) {
             try {
-                const response = await axios.get(REDBOOTH_API_HOST + TASKS_ENDPOINT, {
-                    params: {
-                        access_token: accessToken.access_token,
+                const tasks = await fetchRedboothData({
+                    endpoint: TASKS_ENDPOINT,
+                    endpointParams: {
                         project_id: project.rbProjectId,
                         archived: v,
                         order: 'updated_at-DESC'
                     }
                 });
-                const tasks = response.data;
                 for (const task of tasks) {
                     // To ensure that we only store tasks which have been updated in current year
                     if (task.updated_at >= current_year_start_date) {
-                        await saveTask(task);
+                        await saveRecord({
+                            model: Task,
+                            modelData: {
+                                rbTaskId: task.id,
+                                rbProjectId: task.project_id,
+                                name: task.name,
+                                updatedAt: task.updated_at
+                            },
+                            modelSearchData: { 
+                                rbTaskId: task.id
+                            }
+                        });
                     }
                 }
                 console.log(`All ${v ? `resolved` : 'unresolved'} tasks saved successfully for ${project.name} project !`);
@@ -196,13 +180,12 @@ const syncRedboothProjectsTasks = async () => {
 }
 
 const syncRedboothTasksLoggings = async () => {
-    const accessToken =  await getAccessToken();
     const tasks = await Task.find({ updatedAt: { $gt: current_year_start_date } });
     for (const task of tasks) {
         try {
-            const response = await axios.get(REDBOOTH_API_HOST + COMMENTS_ENDPOINT, {
-                params: {
-                    access_token: accessToken.access_token,
+            const loggings = await fetchRedboothData({
+                endpoint: COMMENTS_ENDPOINT,
+                endpointParams: {
                     target_type: 'Task',
                     target_id: task.rbTaskId,
                     created_from: current_year_start_date,
@@ -211,11 +194,23 @@ const syncRedboothTasksLoggings = async () => {
                 }
             });
             var loggingStatus = false;
-            const loggings = response.data;
             for (const logging of loggings) {
                 if (logging.minutes) {
                     loggingStatus = true;
-                    await saveLogging(logging);
+                    await saveRecord({
+                        model: Logging,
+                        modelData: {
+                            rbCommentId: logging.id,
+                            rbUserId: logging.user_id,
+                            rbTaskId: logging.target_id,
+                            minutes: logging.minutes,
+                            timeTrackingOn: logging.time_tracking_on,
+                            createdAt: logging.created_at
+                        },
+                        modelSearchData: { 
+                            rbCommentId: logging.id
+                        }
+                    });
                 }
             }
             if (loggingStatus) {
@@ -226,32 +221,6 @@ const syncRedboothTasksLoggings = async () => {
         }
     }
     console.log('All of the loggings have been successfully saved!');
-}
-
-const toHoursAndMinutes = (totalMinutes) => {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return { 
-        hours, 
-        minutes, 
-        totalTime: `${hours}h${minutes > 0 ? ` ${minutes}m` : ''}`
-    };
-}
-
-const getLastSundayOfMonth = (month, year) => {
-    // Create a new date object for the first day of the next month
-    var firstDayOfNextMonth = new Date(year, month - 1 + 1, 1);
-    // Subtract one day to get the last day of the current month
-    var lastDayOfMonth = new Date(firstDayOfNextMonth - 24 * 60 * 60 * 1000);
-    // Find the day of the week for the last day of the month (0 - Sunday, 1 - Monday, etc.)
-    var lastDayOfWeek = lastDayOfMonth.getDay();
-    // Calculate the number of days to subtract to get the last Sunday
-    var daysToSubtract = (lastDayOfWeek + 7 - 0) % 7;
-    // Subtract the number of days to get the last Sunday of the month
-    var lastSundayOfMonth = new Date(lastDayOfMonth - daysToSubtract * 24 * 60 * 60 * 1000);
-    // Set the time to the end of the day (23:59:59)
-    lastSundayOfMonth.setHours(23, 59, 59);
-    return lastSundayOfMonth;
 }
 
 const renderUsersLoggings = async ({month, year, invoice, userId}) => {

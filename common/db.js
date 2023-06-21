@@ -42,10 +42,20 @@ const loggingSchema = new mongoose.Schema({
 const Logging = mongoose.model('loggings', loggingSchema);
 // Models Definitions - (END) //
 
+// Models Methods
+const saveRecord = async ({model, modelData, modelSearchData}) => {
+    const checkRecord = await model.find(modelSearchData).exec();
+    if (checkRecord.length == 0) {
+        const record = new model(modelData);
+        await record.save();
+    }
+}
+
 // Export Models
 module.exports = {
     Project,
     User,
     Task,
-    Logging
+    Logging,
+    saveRecord
 };
