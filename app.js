@@ -1,49 +1,10 @@
 require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
-const mongoose = require('mongoose');
 const express = require('express');
 const app = express();
 const port = 3000;
-
-main().catch(err => console.log(err));
-async function main() {
-  await mongoose.connect(process.env.MONGODB_URI);
-}
-
-const projectSchema = new mongoose.Schema({
-    rbProjectId: Number,
-    name: String
-});
-const Project = mongoose.model('projects', projectSchema);
-
-const userSchema = new mongoose.Schema({
-    rbUserId: Number,
-    name: String,
-    username: String,
-    email: String,
-    password: String,
-    status: Boolean
-});
-const User = mongoose.model('users', userSchema);
-
-const taskSchema = new mongoose.Schema({
-    rbTaskId: Number,
-    rbProjectId: Number,
-    name: String,
-    updatedAt: Number
-});
-const Task = mongoose.model('tasks', taskSchema);
-
-const loggingSchema = new mongoose.Schema({
-    rbCommentId: Number,
-    rbUserId: Number,
-    rbTaskId: Number,
-    minutes: Number,
-    timeTrackingOn: String,
-    createdAt: Number
-});
-const Logging = mongoose.model('loggings', loggingSchema);
+const { Project, User, Task, Logging } = require('./common/db.js');
 
 const saveProject = async (projectData) => {
     const checkProject = await Project.find({ rbProjectId: projectData.id }).exec();
@@ -293,7 +254,7 @@ const getLastSundayOfMonth = (month, year) => {
     return lastSundayOfMonth;
 }
 
-const renderUsersLoggings = async (month = null, year = null, invoice = null) => {
+const renderUsersLoggings = async ({month, year, invoice, userId}) => {
     if (month && year && invoice) {
         var startDate = Math.floor(getLastSundayOfMonth(month - 1, year).valueOf() / 1000);
         var endDate = Math.floor(getLastSundayOfMonth(month, year).valueOf() / 1000);
@@ -301,7 +262,7 @@ const renderUsersLoggings = async (month = null, year = null, invoice = null) =>
         var startDate = Math.floor(new Date(year, month - 1, 1).valueOf() / 1000);
         var endDate = Math.floor(new Date(year, month, 0).valueOf() / 1000);
     }
-    const users = await User.find();
+    const users = userId ? await User.find({ rbUserId: userId }) : await User.find();
     var loggingsData = [];
     for (const user of users) {
         var userData = {
@@ -359,14 +320,8 @@ app.get('/sync-data', async (req, res) => {
 });
 
 app.get('/render-data', async (req, res) => {
-    const { month, year, invoice } = req.query;
-    if (month != undefined && year != undefined && invoice != undefined) {
-        var loggingsData = await renderUsersLoggings(month, year, invoice);
-    } else if (month != undefined && year != undefined) {
-        var loggingsData = await renderUsersLoggings(month, year);
-    } else {
-        var loggingsData = await renderUsersLoggings();
-    }
+    const { month, year, invoice, userId } = req.query;
+    var loggingsData = await renderUsersLoggings({month, year, invoice, userId});
     res.json(loggingsData);
 });
 
