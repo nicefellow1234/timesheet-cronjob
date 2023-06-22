@@ -22,8 +22,9 @@ const fetchAccessToken = async (refreshToken = null, code = null) => {
     }
     await axios.post('https://redbooth.com/oauth2/token', params).then((response) => {
         accessToken = response.data;
+        console.log('Access Token returned from response: ', accessToken);
         try {
-            fs.writeFileSync('../rb_token.json', JSON.stringify(accessToken));
+            fs.writeFileSync('./rb_token.json', JSON.stringify(accessToken));
         } catch (err) {
             console.error(err);
         }
@@ -46,7 +47,7 @@ const fetchAccessToken = async (refreshToken = null, code = null) => {
 }
 
 const getAccessToken = async () => {
-    let accessToken = JSON.parse(fs.readFileSync('../rb_token.json'));
+    let accessToken = JSON.parse(fs.readFileSync('./rb_token.json'));
     let currentTimestamp = Math.floor(Date.now() / 1000);
     if ((currentTimestamp - accessToken.created_at) > 7200) {
         console.log('Access token is expired!');
