@@ -138,7 +138,7 @@ const syncRedboothTasksLoggings = async (syncDays = null) => {
                 endpointParams: {
                     target_type: 'Task',
                     target_id: task.rbTaskId,
-                    created_from: current_year_start_date,
+                    created_from: updatedAtTimestamp,
                     created_to: current_end_date,
                     order: 'created_at-DESC'
                 }
