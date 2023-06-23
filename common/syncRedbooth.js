@@ -50,6 +50,47 @@ const syncRedboothProjects = async () => {
     console.log('All of the projects have been successfully saved!');
 }
 
+const syncRedboothProjectsTasks = async () => {
+    const projects = await Project.find();
+    for (const project of projects) {
+        for (const v of [true, false]) {
+            try {
+                const tasks = await fetchRedboothData({
+                    endpoint: TASKS_ENDPOINT,
+                    endpointParams: {
+                        project_id: project.rbProjectId,
+                        archived: v,
+                        order: 'updated_at-DESC'
+                    }
+                });
+                for (const task of tasks) {
+                    var recordData = {
+                        model: Task,
+                        modelData: {
+                            rbTaskId: task.id,
+                            rbProjectId: task.project_id,
+                            name: task.name,
+                            updatedAt: task.updated_at
+                        },
+                        modelSearchData: { 
+                            rbTaskId: task.id
+                        },
+                        recordData: task
+                    };
+                    // Make sure that we only store tasks which have been updated in current year
+                    if (task.updated_at >= current_year_start_date) {
+                        await saveRecord(recordData);
+                    }
+                }
+                console.log(`All ${v ? `resolved` : 'unresolved'} tasks saved successfully for ${project.name} project !`);
+            } catch (err) {
+                console.error('Error fetching Redbooth tasks: ',err);
+            }
+        }
+    }
+    console.log('All of the tasks have been successfully saved!');
+}
+
 const syncRedboothUsers = async () => {
     try {
         const users = await fetchRedboothData({
@@ -81,47 +122,15 @@ const syncRedboothUsers = async () => {
     console.log('All of the users have been successfully saved!');
 }
 
-const syncRedboothProjectsTasks = async () => {
-    const projects = await Project.find();
-    for (const project of projects) {
-        for (const v of [true, false]) {
-            try {
-                const tasks = await fetchRedboothData({
-                    endpoint: TASKS_ENDPOINT,
-                    endpointParams: {
-                        project_id: project.rbProjectId,
-                        archived: v,
-                        order: 'updated_at-DESC'
-                    }
-                });
-                for (const task of tasks) {
-                    // To ensure that we only store tasks which have been updated in current year
-                    if (task.updated_at >= current_year_start_date) {
-                        await saveRecord({
-                            model: Task,
-                            modelData: {
-                                rbTaskId: task.id,
-                                rbProjectId: task.project_id,
-                                name: task.name,
-                                updatedAt: task.updated_at
-                            },
-                            modelSearchData: { 
-                                rbTaskId: task.id
-                            }
-                        });
-                    }
-                }
-                console.log(`All ${v ? `resolved` : 'unresolved'} tasks saved successfully for ${project.name} project !`);
-            } catch (err) {
-                console.error('Error fetching Redbooth tasks: ',err);
-            }
-        }
+const syncRedboothTasksLoggings = async (syncDays = null) => {
+    if (syncDays) {
+        var d = new Date();
+        d.setDate(d.getDate() - syncDays);
+        var updatedAtTimestamp = Math.floor(d.valueOf() / 1000);
+    } else {
+        var updatedAtTimestamp = current_year_start_date;
     }
-    console.log('All of the tasks have been successfully saved!');
-}
-
-const syncRedboothTasksLoggings = async () => {
-    const tasks = await Task.find({ updatedAt: { $gt: current_year_start_date } });
+    const tasks = await Task.find({ updatedAt: { $gt: updatedAtTimestamp } });
     for (const task of tasks) {
         try {
             const loggings = await fetchRedboothData({

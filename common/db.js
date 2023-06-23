@@ -43,11 +43,15 @@ const Logging = mongoose.model('loggings', loggingSchema);
 // Models Definitions - (END) //
 
 // Models Methods
-const saveRecord = async ({model, modelData, modelSearchData}) => {
-    const checkRecord = await model.find(modelSearchData).exec();
-    if (checkRecord.length == 0) {
+const saveRecord = async ({model, modelData, modelSearchData, recordData = null}) => {
+    const dbRecord = await model.findOne(modelSearchData).exec();
+    if (!dbRecord) {
         const record = new model(modelData);
         await record.save();
+    } else if (dbRecord && recordData && dbRecord.updatedAt != recordData.updated_at) {
+        console.log(`Task: ${dbRecord.name} Old UpdatedAt: ${dbRecord.updatedAt} New UpdatedAt: ${recordData.updated_at}`);
+        dbRecord.updatedAt = recordData.updated_at;
+        await dbRecord.save();
     }
 }
 

@@ -24,11 +24,16 @@ app.get('/authorize', async (req, res) => {
 });
 
 app.get('/sync-data', async (req, res) => {
-    syncRedboothProjects()
-      .then(() => syncRedboothProjectsTasks())
-      .then(() => syncRedboothUsers())
-      .then(() => syncRedboothTasksLoggings())
-      .then(() => res.send('Synchronization has been completed!'));
+    const { syncDays, projects, tasks, users, loggings } = req.query;
+    if (!projects)
+        await syncRedboothProjects();
+    if (!tasks)
+        await syncRedboothProjectsTasks();
+    if (!users)
+        await syncRedboothUsers();
+    if (!loggings)
+        await syncRedboothTasksLoggings(syncDays);
+    res.send('Synchronization has been completed!')
 });
 
 app.get('/render-data', async (req, res) => {
