@@ -49,7 +49,6 @@ const saveRecord = async ({model, modelData, modelSearchData, recordData = null}
         const record = new model(modelData);
         await record.save();
     } else if (dbRecord && recordData && dbRecord.updatedAt != recordData.updated_at) {
-        console.log(`Task: ${dbRecord.name} Old UpdatedAt: ${dbRecord.updatedAt} New UpdatedAt: ${recordData.updated_at}`);
         dbRecord.updatedAt = recordData.updated_at;
         await dbRecord.save();
     }
