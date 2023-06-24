@@ -73,6 +73,10 @@ app.get('/generate-pdf-invoice', async (req, res) => {
     }
 });
 
+app.get('/', async (req, res) => {
+    res.send('Hello.');
+});
+
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 });
