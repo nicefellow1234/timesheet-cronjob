@@ -2,3 +2,4 @@ node_modules
 package-lock.json
 rb_token.json
 .env
+invoices

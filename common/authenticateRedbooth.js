@@ -1,5 +1,6 @@
 const axios = require('axios');
 const fs = require('fs');
+const { dateToUnixTimestamp } = require('./util.js');
 
 const client_id = process.env.RB_CLIENT_ID;
 const client_secret = process.env.RB_CLIENT_SECRET;
@@ -48,7 +49,7 @@ const fetchAccessToken = async (refreshToken = null, code = null) => {
 
 const getAccessToken = async () => {
     let accessToken = JSON.parse(fs.readFileSync('./rb_token.json'));
-    let currentTimestamp = Math.floor(Date.now() / 1000);
+    let currentTimestamp = dateToUnixTimestamp(new Date());
     if ((currentTimestamp - accessToken.created_at) > 7200) {
         console.log('Access token is expired!');
         return await fetchAccessToken(accessToken.refresh_token);

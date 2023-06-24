@@ -1,15 +1,16 @@
 const axios = require('axios');
 const { getAccessToken } = require('./authenticateRedbooth.js');
 const { Project, User, Task, Logging, saveRecord } = require('./db.js');
+const { dateToUnixTimestamp } = require('./util.js');
 
 const REDBOOTH_API_HOST = 'https://redbooth.com/api/3';
 const PROJECTS_ENDPOINT = '/projects';
 const TASKS_ENDPOINT = '/tasks';
 const USERS_ENDPOINT = '/users';
 const COMMENTS_ENDPOINT = '/comments';
-const last_year_start_date = Math.floor(new Date(new Date().getFullYear() - 1, 0, 1).valueOf() / 1000);
-const current_year_start_date = Math.floor(new Date(new Date().getFullYear(), 0, 1).valueOf() / 1000);
-const current_end_date = Math.floor(new Date().valueOf() / 1000);
+const last_year_start_date = dateToUnixTimestamp(new Date(new Date().getFullYear() - 1, 0, 1));
+const current_year_start_date = dateToUnixTimestamp(new Date(new Date().getFullYear(), 0, 1));
+const current_end_date = dateToUnixTimestamp(new Date());
 
 const fetchRedboothData = async ({endpoint, endpointParams}) => {
     const accessToken =  await getAccessToken();
@@ -126,7 +127,7 @@ const syncRedboothTasksLoggings = async (syncDays = null) => {
     if (syncDays) {
         var d = new Date();
         d.setDate(d.getDate() - syncDays);
-        var updatedAtTimestamp = Math.floor(d.valueOf() / 1000);
+        var updatedAtTimestamp = dateToUnixTimestamp(d);
     } else {
         var updatedAtTimestamp = current_year_start_date;
     }
