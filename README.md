@@ -101,3 +101,20 @@ To render data view visit the following route (This will render all of the avail
 To render monthly invoice data visit the following route:
 
     http://localhost:3000/render-data?month=6&year=2023
+
+#### Generate Invoice
+
+To generate invoice click on the `Generate Invoice` button and you will see an invoice generated.
+
+![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/61929dc4-7d33-478a-bcde-19eda2a48add)
+
+Invoice can be generated with the following route (`userId` query string parameter is mandatory here):
+
+    http://localhost:3000/generate-pdf-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03
+
+![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/2cf7e957-ecb2-4b70-b413-977b9746929d)
+
+If you want to generate a PDF out of the invoice then pass in an extra query string parameter as `generatePdf` to the invoice URL. You can also update the `hourlyRate` value in the query string as well to update the hourly rate in the invoice.
+
+    http://localhost:3000/generate-pdf-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&generatePdf=1
+
