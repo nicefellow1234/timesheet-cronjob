@@ -40,15 +40,13 @@ app.get('/sync-data', async (req, res) => {
 });
 
 app.get('/render-data', async (req, res) => {
-    const { month, year, invoice, userId } = req.query;
+    const { json, month, year, invoice, userId } = req.query;
     var loggingsData = await renderUsersLoggings({month, year, invoice, userId});
-    res.json(loggingsData);
-});
-
-app.get('/render-data-view', async (req, res) => {
-    const { month, year, invoice, userId } = req.query;
-    var loggingsData = await renderUsersLoggings({month, year, invoice, userId});
-    res.render('renderDataView', {loggingsData, month, year});
+    if (json) {
+        res.json(loggingsData);
+    } else {
+        res.render('renderDataView', {loggingsData, month, year});
+    }
 });
 
 app.get('/generate-pdf-invoice', async (req, res) => {
