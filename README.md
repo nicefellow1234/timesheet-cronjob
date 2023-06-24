@@ -112,7 +112,7 @@ If you want to render data for invoice starting from last month sunday to curren
 
     http://localhost:3000/render-data?month=6&year=2023&invoice=1
 
-#### Generate Invoice
+#### Generate Monthly Invoice
 
 To generate invoice click on the `Generate Invoice` button and you will see an HTML invoice generated.
 
