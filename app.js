@@ -49,14 +49,14 @@ app.get('/render-data', async (req, res) => {
     }
 });
 
-app.get('/generate-pdf-invoice', async (req, res) => {
-    const { month, year, userId, hourlyRate, generatePdf } = req.query;
-    var data = await generateInvoiceData(month, year, userId, hourlyRate);
+app.get('/generate-invoice', async (req, res) => {
+    const { month, year, userId, hourlyRate, invoiceNo, generatePdf } = req.query;
+    var data = await generateInvoiceData(month, year, userId, hourlyRate, invoiceNo);
+    const html = fs.readFileSync('./views/invoiceTemplate.ejs', 'utf-8');
+    const renderedHtml = ejs.render(html, {data});
     if (generatePdf) {
         const browser = await puppeteer.launch({headless: "new"});
         const page = await browser.newPage();
-        const html = fs.readFileSync('./views/invoiceTemplate.ejs', 'utf-8');
-        const renderedHtml = ejs.render(html, {data});
         await page.setContent(renderedHtml, { waitUntil: 'domcontentloaded'});
         // To reflect CSS used for screens instead of print
         await page.emulateMediaType('screen');
@@ -67,7 +67,14 @@ app.get('/generate-pdf-invoice', async (req, res) => {
         await browser.close();
         res.send('PDF invoice has been generated!');
     } else {
-        res.render('invoiceTemplate', {data});
+        res.render('generateInvoice', {
+            renderedHtml,
+            month,
+            year,
+            userId,
+            hourlyRate,
+            invoiceNo
+        });
     }
 });
 

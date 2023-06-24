@@ -52,7 +52,7 @@ const renderUsersLoggings = async ({month, year, invoice, userId}) => {
     return loggingsData;
 }
 
-const generateInvoiceData = async (month, year, userId, hourlyRate) => {
+const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo) => {
     const startDate = getLastSundayOfMonth(month - 1, year, 1);
     const endDate = getLastSundayOfMonth(month, year);
     const invoiceDueDate = getLastSundayOfMonth(month, year);
@@ -109,9 +109,12 @@ const generateInvoiceData = async (month, year, userId, hourlyRate) => {
     }
     return {
         ...user,
+        companyName: process.env.INVOICE_COMPANY_NAME,
+        companyAddress: process.env.INVOICE_COMPANY_ADDRESS,
         invoiceDate: endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
         invoiceDueDate: invoiceDueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
         hourlyRate,
+        invoiceNo,
         totalLoggedHours: toHoursAndMinutes(totalLoggedHours).totalTime,
         monthlyTotals: Math.round(((totalLoggedHours / 60) * hourlyRate) * 100) / 100,
         loggingsData
