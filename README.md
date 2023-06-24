@@ -94,10 +94,10 @@ Since JSON data is not meaningful for normal viewing so we have also provided a 
 
 To render data view visit the following route (This will render all of the available data):
 
-    http://localhost:3000/render-data-view?view=1
+    http://localhost:3000/render-data
 
 #### Render Monthly Invoice Data
 
 To render monthly invoice data visit the following route:
 
-    http://localhost:3000/render-data-view?view=1&month=6&year=2023
+    http://localhost:3000/render-data?month=6&year=2023
