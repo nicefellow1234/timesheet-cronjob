@@ -109,6 +109,7 @@ const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo) =
     }
     return {
         ...user,
+        currency: process.env.CURRENCY,
         companyName: process.env.INVOICE_COMPANY_NAME,
         companyAddress: process.env.INVOICE_COMPANY_ADDRESS,
         invoiceDate: endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),

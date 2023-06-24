@@ -35,7 +35,7 @@
               <td class="text-md font-semibold text-black text-right">
                 Balance Due:
               </td>
-              <td class="text-md font-semibold text-black text-right">£<%= data.monthlyTotals %></td>
+              <td class="text-md font-semibold text-black text-right"><%= data.currency %><%= data.monthlyTotals %></td>
             </tr>
           </tbody>
         </table>
@@ -56,8 +56,8 @@
                     <tr class="border-b border-gray-400">
                         <td class="px-6 py-4 text-black"><%= project.name %> - Work done from <%= weeklyLogging.range %></td>
                         <td class="px-6 py-4 text-black whitespace-nowrap"><%= weeklyLogging.weeklyTotalLoggedHours %></td>
-                        <td class="px-6 py-4 text-black whitespace-nowrap">£<%= data.hourlyRate %></td>
-                        <td class="px-6 py-4 text-black whitespace-nowrap">£<%= weeklyLogging.weeklyTotals %></td>
+                        <td class="px-6 py-4 text-black whitespace-nowrap"><%= data.currency %><%= data.hourlyRate %></td>
+                        <td class="px-6 py-4 text-black whitespace-nowrap"><%= data.currency %><%= weeklyLogging.weeklyTotals %></td>
                     </tr>
                 <% } %>
             <% } %>
@@ -75,7 +75,7 @@
             <tr>
               <td class="px-12"></td>
               <td class="text-md text-gray-500 text-right">Total:</td>
-              <td class="text-md text-black text-right">£<%= data.monthlyTotals %></td>
+              <td class="text-md text-black text-right"><%= data.currency %><%= data.monthlyTotals %></td>
             </tr>
           </tbody>
         </table>
