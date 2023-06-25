@@ -7,19 +7,26 @@ services:
   image: mongo:latest
   restart: always
   ports:
-    - 27017:27017
+    - "27017:27017"
   volumes:
     - db:/data/db
 
 # Web service
  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: node:alpine
+    user: node
+    working_dir: /home/node/app
+    environment:
+      - NODE_ENV=development
     ports:
-      - 3000:3000
+      - "3000:3000"
+    volumes:
+      - ./:/home/node/app
     depends_on:
       - db
+    command: >
+      sh -c "npm i &&
+             npm start"
 
 volumes:
   db: {}
