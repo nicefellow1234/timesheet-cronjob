@@ -123,7 +123,7 @@ const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo, c
         invoiceDate: endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
         invoiceDueDate: invoiceDueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
         totalLoggedHours: toHoursAndMinutes(totalLoggedHours).totalTime,
-        monthlyTotals: Math.round(((totalLoggedHours / 60) * hourlyRate) * 100) / 100,
+        monthlyTotals: ((totalLoggedHours / 60) * hourlyRate),
         loggingsData
     }
 
@@ -148,6 +148,8 @@ const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo, c
         }
         data.customItems = customItems;
     }
+
+    data.monthlyTotals = Math.round(data.monthlyTotals * 100) / 100;
 
     const invoiceTemplate = fs.readFileSync('./views/invoiceTemplate.ejs', 'utf-8');
     data.renderedInvoiceTemplate = ejs.render(invoiceTemplate, {data});
