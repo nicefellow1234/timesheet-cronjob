@@ -128,3 +128,14 @@ If you want to generate a PDF out of the invoice then either click on the `Gener
 
     http://localhost:3000/generate-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&invoiceNo=120&generatePdf=1
 
+#### Invoice Custom Item
+
+If you want to add a custom item to the invoice with text and amount value then you need to pass two extra paramters to do that i.e. `customItem` & `customValue`. Multiple custom items adding is also supported just keep chaining them like given below:
+
+Single Custom Item:
+
+    http://localhost:3000/generate-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&invoiceNo=120&customItem=customItemHere&customValue=100
+
+Multiple Custom Items:
+
+    http://localhost:3000/generate-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&invoiceNo=120&customItem=customItemNo1&customValue=100&customItem=customItemNo2&customValue=200
