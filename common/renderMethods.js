@@ -162,8 +162,10 @@ const generatePdfInvoice = async (invoiceData) => {
     await page.emulateMediaType('screen');
     //await page.screenshot({path: "canvas.png"})
     var invoiceFile = `./invoices/${invoiceData.invoiceNo} - ${invoiceData.name} - ${invoiceData.invoiceDate}.pdf`;
+    let height = await page.evaluate(() => document.documentElement.offsetHeight);
     await page.pdf({
-        path: invoiceFile
+        path: invoiceFile, 
+        height: height + 'px'
     });
     await browser.close();
     return invoiceFile;
