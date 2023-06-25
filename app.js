@@ -47,8 +47,8 @@ app.get('/render-data', async (req, res) => {
 });
 
 app.get('/generate-invoice', async (req, res) => {
-    const { month, year, userId, hourlyRate, invoiceNo, generatePdf } = req.query;
-    var data = await generateInvoiceData(month, year, userId, hourlyRate, invoiceNo);
+    const { month, year, userId, hourlyRate, invoiceNo, generatePdf, customItem, customValue } = req.query;
+    var data = await generateInvoiceData(month, year, userId, hourlyRate, invoiceNo, customItem, customValue);
     if (generatePdf) {
         const invoiceFile = await generatePdfInvoice(data);
         res.download(invoiceFile);

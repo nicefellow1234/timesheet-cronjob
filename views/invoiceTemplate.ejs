@@ -61,6 +61,16 @@
                     </tr>
                 <% } %>
             <% } %>
+            <% if (data.customItems && data.customItems.length) { %>
+              <% for (const cI of data.customItems) { %>
+                <tr class="border-b border-gray-400">
+                  <td class="px-6 py-4 text-black"><%= cI.item %></td>
+                  <td class="px-6 py-4 text-black whitespace-nowrap"></td>
+                  <td class="px-6 py-4 text-black whitespace-nowrap"></td>
+                  <td class="px-6 py-4 text-black whitespace-nowrap"><%= data.currency %><%= cI.value %></td>
+                </tr>
+              <% } %>
+            <% } %>
           </tbody>
         </table>
       </div>

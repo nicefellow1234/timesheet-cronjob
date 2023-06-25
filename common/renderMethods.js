@@ -55,7 +55,7 @@ const renderUsersLoggings = async ({month, year, invoice, userId}) => {
     return loggingsData;
 }
 
-const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo) => {
+const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo, customItem = null, customValue = null) => {
     const startDate = getLastSundayOfMonth(month - 1, year, 1);
     const endDate = getLastSundayOfMonth(month, year);
     const invoiceDueDate = getLastSundayOfMonth(month, year);
@@ -126,6 +126,29 @@ const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo) =
         monthlyTotals: Math.round(((totalLoggedHours / 60) * hourlyRate) * 100) / 100,
         loggingsData
     }
+
+    if (customItem && customValue) {
+        var customItems = [];
+        if (typeof customItem == 'object' && typeof customValue == 'object') {
+            for (let i = 0; i < customItem.length; i++) {
+                if (customItem[i] && customValue[i]) {
+                    customItems.push({
+                        item: customItem[i],
+                        value: customValue[i]
+                    });
+                    data.monthlyTotals += parseFloat(customValue);
+                }
+            }
+        } else {
+            customItems.push({
+                item: customItem,
+                value: customValue
+            });
+            data.monthlyTotals += parseFloat(customValue);
+        }
+        data.customItems = customItems;
+    }
+
     const invoiceTemplate = fs.readFileSync('./views/invoiceTemplate.ejs', 'utf-8');
     data.renderedInvoiceTemplate = ejs.render(invoiceTemplate, {data});
     return data;
