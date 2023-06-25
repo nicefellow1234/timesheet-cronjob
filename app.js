@@ -1,10 +1,7 @@
 require('dotenv').config();
 const express = require('express');
-const ejs = require('ejs');
-const fs = require('fs');
 const app = express();
 const port = 3000;
-const puppeteer = require('puppeteer');
 const { fetchAccessToken } = require('./common/authenticateRedbooth.js');
 const { 
     syncRedboothProjects, 
@@ -12,7 +9,7 @@ const {
     syncRedboothUsers, 
     syncRedboothTasksLoggings 
 } = require('./common/syncRedbooth.js');
-const { renderUsersLoggings, generateInvoiceData } = require('./common/renderMethods.js');
+const { renderUsersLoggings, generateInvoiceData, generatePdfInvoice } = require('./common/renderMethods.js');
 
 // Set ejs as express view engine
 app.set('views', 'views');
@@ -52,29 +49,11 @@ app.get('/render-data', async (req, res) => {
 app.get('/generate-invoice', async (req, res) => {
     const { month, year, userId, hourlyRate, invoiceNo, generatePdf } = req.query;
     var data = await generateInvoiceData(month, year, userId, hourlyRate, invoiceNo);
-    const html = fs.readFileSync('./views/invoiceTemplate.ejs', 'utf-8');
-    const renderedHtml = ejs.render(html, {data});
     if (generatePdf) {
-        const browser = await puppeteer.launch({headless: "new"});
-        const page = await browser.newPage();
-        await page.setContent(renderedHtml, { waitUntil: 'domcontentloaded'});
-        // To reflect CSS used for screens instead of print
-        await page.emulateMediaType('screen');
-        //await page.screenshot({path: "canvas.png"})
-        await page.pdf({
-            path: `./invoices/${data.name} - ${data.invoiceDate}.pdf`
-        });
-        await browser.close();
-        res.send('PDF invoice has been generated!');
+        const invoiceFile = await generatePdfInvoice(data);
+        res.download(invoiceFile);
     } else {
-        res.render('generateInvoice', {
-            renderedHtml,
-            month,
-            year,
-            userId,
-            hourlyRate,
-            invoiceNo
-        });
+        res.render('generateInvoice', {data});
     }
 });
 

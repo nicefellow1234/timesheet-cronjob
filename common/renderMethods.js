@@ -1,3 +1,6 @@
+const puppeteer = require('puppeteer');
+const ejs = require('ejs');
+const fs = require('fs');
 const { Project, User, Task, Logging } = require('./db.js');
 const { toHoursAndMinutes, getLastSundayOfMonth, getWeeklyRanges, dateToUnixTimestamp, unixTimestampToDate } = require('./util.js');
 
@@ -107,22 +110,44 @@ const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo) =
             }
         } 
     }
-    return {
+    var data = {
         ...user,
         currency: process.env.CURRENCY,
         companyName: process.env.INVOICE_COMPANY_NAME,
         companyAddress: process.env.INVOICE_COMPANY_ADDRESS,
-        invoiceDate: endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-        invoiceDueDate: invoiceDueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        month,
+        year,
+        userId,
         hourlyRate,
         invoiceNo,
+        invoiceDate: endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        invoiceDueDate: invoiceDueDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
         totalLoggedHours: toHoursAndMinutes(totalLoggedHours).totalTime,
         monthlyTotals: Math.round(((totalLoggedHours / 60) * hourlyRate) * 100) / 100,
         loggingsData
     }
+    const invoiceTemplate = fs.readFileSync('./views/invoiceTemplate.ejs', 'utf-8');
+    data.renderedInvoiceTemplate = ejs.render(invoiceTemplate, {data});
+    return data;
+}
+
+const generatePdfInvoice = async (invoiceData) => {
+    const browser = await puppeteer.launch({headless: "new"});
+    const page = await browser.newPage();
+    await page.setContent(invoiceData.renderedInvoiceTemplate, { waitUntil: 'domcontentloaded'});
+    // To reflect CSS used for screens instead of print
+    await page.emulateMediaType('screen');
+    //await page.screenshot({path: "canvas.png"})
+    var invoiceFile = `./invoices/${invoiceData.invoiceNo} - ${invoiceData.name} - ${invoiceData.invoiceDate}.pdf`;
+    await page.pdf({
+        path: invoiceFile
+    });
+    await browser.close();
+    return invoiceFile;
 }
 
 module.exports = {
     renderUsersLoggings,
-    generateInvoiceData
+    generateInvoiceData,
+    generatePdfInvoice
 }
