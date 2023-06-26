@@ -1,0 +1,10 @@
+node_modules
+package-lock.json
+rb_token.json
+.env
+.git
+.DS_Store
+dist
+npm-debug.
+docker-compose.yml
+Dockerfile
