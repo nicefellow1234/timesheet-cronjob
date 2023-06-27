@@ -10,12 +10,19 @@ const {
     syncRedboothTasksLoggings 
 } = require('./common/syncRedbooth.js');
 const { renderUsersLoggings, generateInvoiceData, generatePdfInvoice } = require('./common/renderMethods.js');
+const { User, Logging } = require('./common/db.js')
 
 // Set ejs as express view engine
 app.set('views', 'views');
 app.set('view engine', 'ejs');
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
+
+app.get('/', async (req, res) => {
+    const userIdsWithLoggings = await Logging.find().distinct('rbUserId');
+    const users = await User.find({ rbUserId: { "$in" : userIdsWithLoggings } }).lean();
+    res.render('index', {users});
+});
 
 app.get('/authorize', async (req, res) => {
     const accessToken = await fetchAccessToken(null, req.query.code);

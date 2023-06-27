@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timesheet Cronjob + Invoice Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+    <script>
+        $(document).ready(function(){
+            $('form#syncDataForm').on('submit', function(e) {
+                e.preventDefault();
+                let syncDays = $(this).find('input[name="syncDays"]').val();
+                if (!syncDays || syncDays == 0) {
+                    var formFields = $(this).find('input[name!="syncDays"]').serialize();
+                } else {
+                    var formFields = $(this).serialize();
+                }
+                window.open($(this).attr('action') + '?' + formFields, '_blank').focus();
+            });
+        });
+    </script>
+</head>
+<body class="bg-gray-300">
+    <div class="container max-w-3xl mx-auto mt-5">
+        <div class="text-3xl font-semibold text-center mb-5">
+            Timesheet Cronjob + Invoice Generator
+        </div>
+        <div class="p-5 border-2 rounded-lg border-[1px] border-gray-400 shadow-sm bg-white">
+            <div class="mt-1 mb-2">
+                <div class="text-center text-2xl font-medium mb-2">
+                    Sync Redbooth Data
+                </div>
+                <div class="text-center mt-5">
+                    <a target="_blank" href="/sync-data" class="p-2 rounded-md text-white bg-blue-500 hover:bg-blue-800">
+                        Sync All Redbooth Data
+                    </a>
+                </div>
+                <form id="syncDataForm" class="mb-5" action="/sync-data">
+                    <div class="mt-4">
+                        Check the Radio boxes next to each type of data that you don't want to Sync
+                    </div>
+                    <div class="grid grid-cols-2">
+                        <div class="mt-1 space-y-2">
+                            <div class="relative flex gap-x-3">
+                                <div class="flex h-6 items-center">
+                                    <input name="projects" checked type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
+                                </div>
+                                <div class="text-sm leading-6">
+                                    <label class="font-medium text-gray-900" for="comments">Projects</label>
+                                </div>
+                            </div>
+                            <div class="relative flex gap-x-3">
+                                <div class="flex h-6 items-center">
+                                    <input name="tasks" type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
+                                </div>
+                                <div class="text-sm leading-6">
+                                    <label class="font-medium text-gray-900" for="comments">Tasks</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <div class="relative flex gap-x-3">
+                                <div class="flex h-6 items-center">
+                                    <input name="users" checked type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
+                                </div>
+                                <div class="text-sm leading-6">
+                                    <label class="font-medium text-gray-900" for="comments">Users</label>
+                                </div>
+                            </div>
+                            <div class="relative flex gap-x-3">
+                                <div class="flex h-6 items-center">
+                                    <input name="loggings" type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
+                                </div>
+                                <div class="text-sm leading-6">
+                                    <label class="font-medium text-gray-900" for="comments">Loggings</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Sync Days</label>
+                            <input type="number" name="syncDays" min="0" value="1" class="p-2  block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
+                        </div>
+                    </div>
+                    <button type="submit" class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800">
+                        Sync Specific Data
+                    </button>
+                </form>
+                <hr>
+                <form target="_blank" class="mb-5 mt-5" action="/generate-invoice">
+                    <div class="text-center text-2xl font-medium mb-2">
+                        Generate Monthly Invoice
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Select User</label>
+                            <select name="userId" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <% for (const user of users) { %>
+                                    <option value="<%= user.rbUserId %>"><%= user.name %></option>
+                                <% } %>
+                            </select>
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Month</label>
+                            <select name="month" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Year</label>
+                            <select name="year" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <option value="2023" selected>2023</option>
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026">2026</option>
+                            </select>
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Hourly Rate</label>
+                            <input type="number" name="hourlyRate" step="any" min="0" value="1" class="p-2  block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Invoice No</label>
+                            <input type="number" name="invoiceNo" min="0" value="1" class="p-2  block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
+                        </div>
+                    </div>
+                    <input type="hidden" name="generatePdf" value="1">
+                    <button type="submit" class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800">
+                        Generate Invoice
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
