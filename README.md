@@ -64,7 +64,8 @@ We have completed the installation now we can move ahead to start populating the
 
 For ease of use, we have added an index page which is available at the app root URL i.e. at http://localhost:3000/ where you can perform all of the below operations from the UI.
 
-![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/a14f06c6-6c4e-43a8-ba1b-feb568eea7b4)
+![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/65b898e3-d6f0-4474-b24e-8b4e6350b00c)
+
 
 Now that we have installed the script, next thing is to populate our database and fetch data from Redbooth. To make that happen we have created a route for that which will sync our data with Redbooth. We are fetching 4 types of data from Redbooth i.e. projects, tasks, users & loggings.
 
