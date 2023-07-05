@@ -1,4 +1,5 @@
 ﻿# Timesheet Cronjob
+
 A cronjob app written to fetch loggings data from Redbooth and store that into your own MongoDB database and then use that data to generate invoices. The script uses lots of node packages to make that happen. Initially now the app has been created with a web server functionality where you can perform different tasks by visiting certain routes and pass them certain parameters through query string to make them happen but the upcoming functionality will be to turn this into a cronjob based script where the data will be synced on a scheduled basis using the cronjob functionality of the script.
 
 ### Installation - Step 1
@@ -39,11 +40,11 @@ Once you create your Redbooth API Console app so get your `Client ID` & `Client 
     RB_CLIENT_SECRET='RB_CLIENT_SECRET'
     RB_REDIRECT_URI='http://localhost:3000/authorize'
 
-Once you do that then now it's time to fire up the app and authenticate redbooth to start fetching the data to populate our database. 
+Once you do that then now it's time to fire up the app and authenticate redbooth to start fetching the data to populate our database.
 
 Execute the following command to start the app:
 
-    node app.js
+    npm start
 
 ### Installation - Step 3 - Authenticate Redbooth (Get Access Token from Redbooth)
 
@@ -52,7 +53,6 @@ Now Headover to Redbooth API Console at: https://redbooth.com/oauth2/application
 Open your Redbooth API Console App by clicking on `Show` button next to the app. Next click on `Authorize` button to authenticate the app and get access token.
 
 ![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/160b8800-dfc6-4732-8959-551bcef82f1a)
-
 
 Once you click on `Authorize` button you will be forwarded to the `Return URI` for further processing.
 
@@ -66,10 +66,9 @@ For ease of use, we have added an index page which is available at the app root 
 
 ![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/65b898e3-d6f0-4474-b24e-8b4e6350b00c)
 
-
 Now that we have installed the script, next thing is to populate our database and fetch data from Redbooth. To make that happen we have created a route for that which will sync our data with Redbooth. We are fetching 4 types of data from Redbooth i.e. projects, tasks, users & loggings.
 
-#### Sync Data Route: 
+#### Sync Data Route:
 
     http://localhost:3000/sync-data
 
