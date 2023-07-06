@@ -19,6 +19,37 @@
                 window.open($(this).attr('action') + '?' + formFields, '_blank').focus();
             });
         });
+
+        // Add custom item
+        $(document).on('click', '.addCustomItem', function(e){
+            e.preventDefault();
+            $('.customItemContainer').append(
+                `<div class="customItem grid grid-cols-12 gap-2">
+                    <div class="col-span-11 grid grid-cols-2 gap-2">
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Custom Item</label>
+                            <input type="text" name="customItem" class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Custom Value</label>
+                            <input type="text" name="customValue" class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
+                        </div>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="button" class="removeCustomItem w-full bg-white rounded-md p-[5px] inline-flex items-center justify-center text-gray-400 border-2 border-gray-300 hover:text-gray-500 hover:border-2 hover:border-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                            <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>`
+            );
+        });
+
+        // Remove custom item
+        $(document).on('click', '.removeCustomItem', function(e){
+            $(this).parents('.customItem').remove();
+        });
     </script>
 </head>
 <body class="bg-gray-300">
@@ -134,8 +165,23 @@
                             <label class="block text-sm font-medium leading-6 text-gray-900">Invoice No</label>
                             <input type="number" name="invoiceNo" min="0" value="1" class="p-2  block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
                         </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Generate PDF</label>
+                            <select name="generatePdf" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <option value="1" selected>Yes</option>
+                                <option value="null">No</option>
+                            </select>
+                        </div>
                     </div>
-                    <input type="hidden" name="generatePdf" value="1">
+                    <div class="customItemContainer">
+                        
+                    </div>
+                    <div>
+                        <button type="submit" class="addCustomItem p-[4px] mt-3 px-3 text-sm rounded-md text-white bg-pink-500 hover:bg-pink-800">
+                            Add Custom Item
+                        </button>
+                    </div>
+                    <!-- <input type="hidden" name="generatePdf" value="1"> -->
                     <button type="submit" class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800">
                         Generate Invoice
                     </button>
