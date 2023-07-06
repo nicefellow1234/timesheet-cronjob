@@ -2,10 +2,10 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 
-const Invoice = require("../../api/models/invoice");
+const Project = require("../../api/models/project");
 
 router.get("/", (req, res, next) => {
-  Invoice.find()
+  Project.find()
     .exec()
     .then((docs) => {
       console.log(docs);
@@ -20,21 +20,18 @@ router.get("/", (req, res, next) => {
 });
 
 router.post("/", (req, res, next) => {
-  const invoice = new Invoice({
+  const project = new Project({
     _id: new mongoose.Types.ObjectId(),
-    userId: req.body.userId,
-    project: req.body.project,
-    weekEnding: req.body.weekEnding,
-    rate: req.body.rate,
-    subTotal: req.body.subTotal,
+    rbProjectId: req.body.rbProjectId,
+    name: req.body.name,
   });
-  invoice
+  project
     .save()
     .then((result) => {
       console.log(result);
       res.status(201).json({
-        message: "Handling POST requests to /invoice",
-        createdInvoice: result,
+        message: "Handling POST requests to /projects",
+        createdProject: result,
       });
     })
     .catch((err) => {
@@ -45,9 +42,9 @@ router.post("/", (req, res, next) => {
     });
 });
 
-router.get("/:invoiceId", (req, res, next) => {
-  const id = req.params.invoiceId;
-  Invoice.findById(id)
+router.get("/:projectId", (req, res, next) => {
+  const id = req.params.projectId;
+  Project.findById(id)
     .exec()
     .then((doc) => {
       console.log("From database", doc);
@@ -65,13 +62,13 @@ router.get("/:invoiceId", (req, res, next) => {
     });
 });
 
-router.patch("/:invoiceId", (req, res, next) => {
-  const id = req.params.invoiceId;
+router.put("/:projectId", (req, res, next) => {
+  const id = req.params.projectId;
   const updateOps = {};
   for (const ops of req.body) {
     updateOps[ops.propName] = ops.value;
   }
-  Invoice.findOneAndUpdate({ _id: id }, { $set: updateOps })
+  Project.findOneAndUpdate({ _id: id }, { $set: updateOps })
     .exec()
     .then((result) => {
       console.log(result);
@@ -85,15 +82,15 @@ router.patch("/:invoiceId", (req, res, next) => {
     });
 });
 
-router.delete("/:invoiceId", (req, res, next) => {
-  const id = req.params.invoiceId;
-  Invoice.deleteOne({ _id: id })
+router.delete("/:projectId", (req, res, next) => {
+  const id = req.params.projectId;
+  Project.deleteOne({ _id: id })
     .exec()
     .then((result) => {
       console.log(result);
       res.status(200).json({
-        message: "Invoice deleted successfully",
-        deletedInvoice: result,
+        message: "Project deleted successfully",
+        deletedProject: result,
       });
     })
     .catch((err) => {

@@ -4,8 +4,11 @@ const app = express();
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
 const invoiceRoutes = require("./api/routes/invoice");
-const renderUsersRoutes = require("./api/routes/Users");
+const generateInvoiceRoutes = require("./api/routes/generate-invoice");
+const renderUsersRoutes = require("./api/routes/users");
 const taskRoutes = require("./api/routes/task");
+const projectRoutes = require("./api/routes/project");
+const LoggingRoutes = require("./api/routes/logging");
 const { fetchAccessToken } = require("./common/authenticateRedbooth.js");
 const {
   syncRedboothProjects,
@@ -18,8 +21,8 @@ const {
   generateInvoiceData,
   generatePdfInvoice,
 } = require("./common/renderMethods.js");
-const User = require("./models/users");
-const Logging = require("./models/logging");
+const User = require("./api/models/users");
+const Logging = require("./api/models/logging");
 
 // Set ejs as express view engine
 app.set("views", "views");
@@ -82,38 +85,41 @@ app.get("/sync-data", async (req, res) => {
 //   }
 // });
 
-app.get("/generate-invoice", async (req, res) => {
-  const {
-    month,
-    year,
-    userId,
-    hourlyRate,
-    invoiceNo,
-    generatePdf,
-    customItem,
-    customValue,
-  } = req.query;
-  let data = await generateInvoiceData(
-    month,
-    year,
-    userId,
-    hourlyRate,
-    invoiceNo,
-    customItem,
-    customValue
-  );
-  if (generatePdf) {
-    const invoiceFile = await generatePdfInvoice(data);
-    res.download(invoiceFile);
-  } else {
-    res.render("generateInvoice", { data });
-  }
-});
+// app.get("/generate-invoice", async (req, res) => {
+//   const {
+//     month,
+//     year,
+//     userId,
+//     hourlyRate,
+//     invoiceNo,
+//     generatePdf,
+//     customItem,
+//     customValue,
+//   } = req.query;
+//   let data = await generateInvoiceData(
+//     month,
+//     year,
+//     userId,
+//     hourlyRate,
+//     invoiceNo,
+//     customItem,
+//     customValue
+//   );
+//   if (generatePdf) {
+//     const invoiceFile = await generatePdfInvoice(data);
+//     res.download(invoiceFile);
+//   } else {
+//     res.render("generateInvoice", { data });
+//   }
+// });
 
 //Routes which should handle requests
 app.use("/invoice", invoiceRoutes);
+app.use("/invoice/generate-invoice", generateInvoiceRoutes);
 app.use("/render-users", renderUsersRoutes);
 app.use("/tasks", taskRoutes);
+app.use("/projects", projectRoutes);
+app.use("/loggings", LoggingRoutes);
 
 //handle error
 app.use((req, res, next) => {

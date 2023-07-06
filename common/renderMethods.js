@@ -1,10 +1,10 @@
 const puppeteer = require("puppeteer");
 const ejs = require("ejs");
 const fs = require("fs");
-const User = require("../models/users.js");
-const Logging = require("../models/logging.js");
-const Task = require("../models/task.js");
-const Project = require("../models/project.js");
+const User = require("../api/models/users");
+const Logging = require("../api/models/logging");
+const Task = require("../api/models/task");
+const Project = require("../api/models/project");
 const {
   toHoursAndMinutes,
   getLastSundayOfMonth,
@@ -24,21 +24,21 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
   const users = userId
     ? await User.find({ rbUserId: userId })
     : await User.find();
-  var loggingsData = [];
+  let loggingsData = [];
   for (const user of users) {
-    var userData = {
+    let userData = {
       rbUserId: user.rbUserId,
       name: user.name,
       email: user.email,
     };
-    var usertotalLoggedHours = null;
-    var userLoggingsData = [];
+    let usertotalLoggedHours = null;
+    let userLoggingsData = [];
     const userLoggings = await Logging.find({ rbUserId: user.rbUserId })
       .sort({ createdAt: "desc" })
       .exec();
     for (const userLogging of userLoggings) {
-      var loggingDate = new Date(userLogging.timeTrackingOn);
-      var loggingTimestamp = dateToUnixTimestamp(loggingDate);
+      let loggingDate = new Date(userLogging.timeTrackingOn);
+      let loggingTimestamp = dateToUnixTimestamp(loggingDate);
       if (
         month &&
         year &&
@@ -52,7 +52,7 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
       const project = await Project.findOne({
         rbProjectId: task.rbProjectId,
       }).exec();
-      var loggingData = {
+      let loggingData = {
         rbCommentId: userLogging.rbCommentId,
         rbProjectId: task.rbProjectId,
         rbProjectName: project.name,
@@ -87,6 +87,7 @@ const generateInvoiceData = async (
   customItem = null,
   customValue = null
 ) => {
+  console.log("month,year", month, year);
   const startDate = getLastSundayOfMonth(month - 1, year, 1);
   const endDate = getLastSundayOfMonth(month, year);
   const invoiceDueDate = getLastSundayOfMonth(month, year);
@@ -97,16 +98,16 @@ const generateInvoiceData = async (
   const loggings = await Logging.find({ rbUserId: userId })
     .sort({ createdAt: "desc" })
     .exec();
-  var totalLoggedHours = 0;
-  var loggingsData = [];
+  let totalLoggedHours = 0;
+  let loggingsData = [];
   if (loggings.length) {
     for (const project of projects) {
-      var projectLoggingsData = [];
+      let projectLoggingsData = [];
       for (const weeklyRange of weeklyRanges) {
-        var weeklyLoggingsData = [];
-        var weeklyTotalLoggedHours = 0;
+        let weeklyLoggingsData = [];
+        let weeklyTotalLoggedHours = 0;
         for (const logging of loggings) {
-          var loggingDate = dateToUnixTimestamp(
+          let loggingDate = dateToUnixTimestamp(
             new Date(logging.timeTrackingOn)
           );
           if (
@@ -154,7 +155,7 @@ const generateInvoiceData = async (
       }
     }
   }
-  var data = {
+  let data = {
     ...user,
     currency: process.env.CURRENCY,
     companyName: process.env.INVOICE_COMPANY_NAME,
@@ -180,7 +181,7 @@ const generateInvoiceData = async (
   };
 
   if (customItem && customValue) {
-    var customItems = [];
+    let customItems = [];
     if (typeof customItem == "object" && typeof customValue == "object") {
       for (let i = 0; i < customItem.length; i++) {
         if (customItem[i] && customValue[i]) {
@@ -203,11 +204,11 @@ const generateInvoiceData = async (
 
   data.monthlyTotals = Math.round(data.monthlyTotals * 100) / 100;
 
-  const invoiceTemplate = fs.readFileSync(
-    "./views/invoiceTemplate.ejs",
-    "utf-8"
-  );
-  data.renderedInvoiceTemplate = ejs.render(invoiceTemplate, { data });
+  // const invoiceTemplate = fs.readFileSync(
+  //   "./views/invoiceTemplate.ejs",
+  //   "utf-8"
+  // );
+  // data.renderedInvoiceTemplate = ejs.render(invoiceTemplate, { data });
   return data;
 };
 

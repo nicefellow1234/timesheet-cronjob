@@ -3,7 +3,7 @@ const router = express.Router();
 const mongoose = require("mongoose");
 // const { renderUsersLoggings } = require("../../common/renderMethods");
 
-const User = require("../../models/users");
+const User = require("../models/users");
 
 router.get("/", (req, res, next) => {
   User.find()

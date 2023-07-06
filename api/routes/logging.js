@@ -2,10 +2,10 @@ const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 
-const Invoice = require("../../api/models/invoice");
+const Logging = require("../../api/models/logging");
 
 router.get("/", (req, res, next) => {
-  Invoice.find()
+  Logging.find()
     .exec()
     .then((docs) => {
       console.log(docs);
@@ -20,21 +20,22 @@ router.get("/", (req, res, next) => {
 });
 
 router.post("/", (req, res, next) => {
-  const invoice = new Invoice({
+  const logging = new Logging({
     _id: new mongoose.Types.ObjectId(),
-    userId: req.body.userId,
-    project: req.body.project,
-    weekEnding: req.body.weekEnding,
-    rate: req.body.rate,
-    subTotal: req.body.subTotal,
+    rbCommentId: req.body.rbCommentId,
+    rbUserId: req.body.rbUserId,
+    rbTaskId: req.body.rbTaskId,
+    minutes: req.body.minutes,
+    timeTrackingOn: req.body.timeTrackingOn,
+    createdAt: req.body.createdAt,
   });
-  invoice
+  logging
     .save()
     .then((result) => {
       console.log(result);
       res.status(201).json({
-        message: "Handling POST requests to /invoice",
-        createdInvoice: result,
+        message: "Handling POST requests to /loggings",
+        createdLogging: result,
       });
     })
     .catch((err) => {
@@ -45,33 +46,13 @@ router.post("/", (req, res, next) => {
     });
 });
 
-router.get("/:invoiceId", (req, res, next) => {
-  const id = req.params.invoiceId;
-  Invoice.findById(id)
-    .exec()
-    .then((doc) => {
-      console.log("From database", doc);
-      if (doc) {
-        res.status(200).json(doc);
-      } else {
-        res.status(500).json({
-          message: "No valid entry found for provided ID",
-        });
-      }
-    })
-    .catch((err) => {
-      console.log(err);
-      res.status(500).json({ error: err });
-    });
-});
-
-router.patch("/:invoiceId", (req, res, next) => {
-  const id = req.params.invoiceId;
+router.put("/:loggingId", (req, res, next) => {
+  const id = req.params.loggingId;
   const updateOps = {};
   for (const ops of req.body) {
     updateOps[ops.propName] = ops.value;
   }
-  Invoice.findOneAndUpdate({ _id: id }, { $set: updateOps })
+  Logging.findOneAndUpdate({ _id: id }, { $set: updateOps })
     .exec()
     .then((result) => {
       console.log(result);
@@ -85,15 +66,15 @@ router.patch("/:invoiceId", (req, res, next) => {
     });
 });
 
-router.delete("/:invoiceId", (req, res, next) => {
-  const id = req.params.invoiceId;
-  Invoice.deleteOne({ _id: id })
+router.delete("/:loggingId", (req, res, next) => {
+  const id = req.params.loggingId;
+  Logging.deleteOne({ _id: id })
     .exec()
     .then((result) => {
       console.log(result);
       res.status(200).json({
-        message: "Invoice deleted successfully",
-        deletedInvoice: result,
+        message: "Log deleted successfully",
+        deletedLog: result,
       });
     })
     .catch((err) => {

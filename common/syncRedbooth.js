@@ -1,10 +1,10 @@
 const axios = require("axios");
 const { getAccessToken } = require("./authenticateRedbooth.js");
 const { saveRecord } = require("./db.js");
-const User = require("../models/users.js");
-const Logging = require("../models/logging.js");
-const Task = require("../models/task.js");
-const Project = require("../models/project.js");
+const User = require("../api/models/users.js");
+const Logging = require("../api/models/logging.js");
+const Task = require("../api/models/task.js");
+const Project = require("../api/models/project.js");
 const { dateToUnixTimestamp } = require("./util.js");
 
 const REDBOOTH_API_HOST = "https://redbooth.com/api/3";
