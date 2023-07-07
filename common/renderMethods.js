@@ -1,5 +1,4 @@
 const puppeteer = require("puppeteer");
-const ejs = require("ejs");
 const fs = require("fs");
 const User = require("../api/models/users");
 const Logging = require("../api/models/logging");
@@ -87,12 +86,12 @@ const generateInvoiceData = async (
   customItem = null,
   customValue = null
 ) => {
-  console.log("month,year", month, year);
   const startDate = getLastSundayOfMonth(month - 1, year, 1);
   const endDate = getLastSundayOfMonth(month, year);
   const invoiceDueDate = getLastSundayOfMonth(month, year);
   invoiceDueDate.setDate(invoiceDueDate.getDate() + 30);
   const weeklyRanges = getWeeklyRanges(startDate, endDate);
+
   const projects = await Project.find().lean();
   const user = await User.findOne({ rbUserId: userId }, { password: 0 }).lean();
   const loggings = await Logging.find({ rbUserId: userId })
@@ -155,6 +154,7 @@ const generateInvoiceData = async (
       }
     }
   }
+
   let data = {
     ...user,
     currency: process.env.CURRENCY,
@@ -203,12 +203,6 @@ const generateInvoiceData = async (
   }
 
   data.monthlyTotals = Math.round(data.monthlyTotals * 100) / 100;
-
-  // const invoiceTemplate = fs.readFileSync(
-  //   "./views/invoiceTemplate.ejs",
-  //   "utf-8"
-  // );
-  // data.renderedInvoiceTemplate = ejs.render(invoiceTemplate, { data });
   return data;
 };
 

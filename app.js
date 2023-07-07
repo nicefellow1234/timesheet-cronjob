@@ -16,11 +16,6 @@ const {
   syncRedboothUsers,
   syncRedboothTasksLoggings,
 } = require("./common/syncRedbooth.js");
-const {
-  // renderUsersLoggings,
-  generateInvoiceData,
-  generatePdfInvoice,
-} = require("./common/renderMethods.js");
 const User = require("./api/models/users");
 const Logging = require("./api/models/logging");
 
@@ -70,49 +65,6 @@ app.get("/sync-data", async (req, res) => {
   res.send("Synchronization has been completed!");
 });
 
-// app.get("/render-data", async (req, res) => {
-//   const { json, month, year, invoice, userId } = req.query;
-//   var loggingsData = await renderUsersLoggings({
-//     month,
-//     year,
-//     invoice,
-//     userId,
-//   });
-//   if (json) {
-//     res.json(loggingsData);
-//   } else {
-//     res.render("renderDataView", { loggingsData, month, year });
-//   }
-// });
-
-// app.get("/generate-invoice", async (req, res) => {
-//   const {
-//     month,
-//     year,
-//     userId,
-//     hourlyRate,
-//     invoiceNo,
-//     generatePdf,
-//     customItem,
-//     customValue,
-//   } = req.query;
-//   let data = await generateInvoiceData(
-//     month,
-//     year,
-//     userId,
-//     hourlyRate,
-//     invoiceNo,
-//     customItem,
-//     customValue
-//   );
-//   if (generatePdf) {
-//     const invoiceFile = await generatePdfInvoice(data);
-//     res.download(invoiceFile);
-//   } else {
-//     res.render("generateInvoice", { data });
-//   }
-// });
-
 //Routes which should handle requests
 app.use("/invoice", invoiceRoutes);
 app.use("/invoice/generate-invoice", generateInvoiceRoutes);
@@ -137,10 +89,10 @@ app.use((error, req, res, next) => {
   });
 });
 
-app.use((req, res, next) => {
-  res.status(200).json({
-    message: "It works!",
-  });
-});
+// app.use((req, res, next) => {
+//   res.status(200).json({
+//     message: "It works!",
+//   });
+// });
 
 module.exports = app;

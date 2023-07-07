@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-// const mongoose = require("mongoose");
 
 const { generateInvoiceData } = require("../../common/renderMethods");
 
@@ -27,8 +26,8 @@ router.post("/", async (req, res, next) => {
     );
 
     return res.status(200).json({ data });
-  } catch (error) {
-    console.log(error);
+  } catch (err) {
+    console.log(err);
     res.status(500).json({
       error: err,
     });
