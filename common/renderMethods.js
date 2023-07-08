@@ -136,7 +136,7 @@ const generateInvoiceData = async (month, year, userId, hourlyRate, invoiceNo, c
                         item: customItem[i],
                         value: customValue[i]
                     });
-                    data.monthlyTotals += parseFloat(customValue);
+                    data.monthlyTotals += parseFloat(customValue[i]);
                 }
             }
         } else {
