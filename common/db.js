@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 
-// Connect to DB
-connectDb().catch((err) => console.log(err));
-async function connectDb() {
-  await mongoose.connect(process.env.MONGODB_URI);
-}
+mongoose.connect(
+  "mongodb+srv://CX-timesheet:" +
+    process.env.MONGO_ATLAS_PW +
+    "@cx-timesheet.ibmrtvy.mongodb.net/?retryWrites=true&w=majority"
+);
 
 const saveRecord = async ({
   model,

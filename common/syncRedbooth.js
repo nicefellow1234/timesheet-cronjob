@@ -1,4 +1,5 @@
 const axios = require("axios");
+const mongoose = require("mongoose");
 const { getAccessToken } = require("./authenticateRedbooth.js");
 const { saveRecord } = require("./db.js");
 const User = require("../api/models/users.js");
@@ -40,12 +41,15 @@ const syncRedboothProjects = async () => {
       },
     });
     for (const project of projects) {
+      const projectData = {
+        _id: new mongoose.Types.ObjectId(),
+        rbProjectId: project.id,
+        name: project.name,
+      };
+
       await saveRecord({
         model: Project,
-        modelData: {
-          rbProjectId: project.id,
-          name: project.name,
-        },
+        modelData: projectData,
         modelSearchData: {
           rbProjectId: project.id,
         },
@@ -75,9 +79,10 @@ const syncRedboothProjectsTasks = async () => {
           },
         });
         for (const task of tasks) {
-          var recordData = {
+          let recordData = {
             model: Task,
             modelData: {
+              _id: new mongoose.Types.ObjectId(),
               rbTaskId: task.id,
               rbProjectId: task.project_id,
               name: task.name,
@@ -115,16 +120,19 @@ const syncRedboothUsers = async () => {
       },
     });
     for (const user of users) {
+      const userData = {
+        _id: new mongoose.Types.ObjectId(),
+        rbUserId: user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        username: user.username,
+        email: user.email,
+        password: Math.random().toString(36).slice(-8),
+        status: true,
+      };
+
       await saveRecord({
         model: User,
-        modelData: {
-          rbUserId: user.id,
-          name: `${user.first_name} ${user.last_name}`,
-          username: user.username,
-          email: user.email,
-          password: Math.random().toString(36).slice(-8),
-          status: true,
-        },
+        modelData: userData,
         modelSearchData: {
           rbUserId: user.id,
         },
@@ -162,13 +170,14 @@ const syncRedboothTasksLoggings = async (syncDays = null) => {
           order: "created_at-DESC",
         },
       });
-      var loggingStatus = false;
+      let loggingStatus = false;
       for (const logging of loggings) {
         if (logging.minutes) {
           loggingStatus = true;
           await saveRecord({
             model: Logging,
             modelData: {
+              _id: new mongoose.Types.ObjectId(),
               rbCommentId: logging.id,
               rbUserId: logging.user_id,
               rbTaskId: logging.target_id,
