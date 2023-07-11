@@ -10,13 +10,9 @@ const renderUsersRoutes = require("./api/routes/users");
 const taskRoutes = require("./api/routes/task");
 const projectRoutes = require("./api/routes/project");
 const LoggingRoutes = require("./api/routes/logging");
-const { fetchAccessToken } = require("./common/authenticateRedbooth.js");
-const {
-  syncRedboothProjects,
-  syncRedboothProjectsTasks,
-  syncRedboothUsers,
-  syncRedboothTasksLoggings,
-} = require("./common/syncRedbooth.js");
+const syncDataRoutes = require("./api/routes/syncData");
+const authorizeDataRoutes = require("./api/routes/authorize");
+
 const User = require("./api/models/users");
 const Logging = require("./api/models/logging");
 
@@ -51,22 +47,9 @@ app.get("/", async (req, res) => {
   res.render("index", { users });
 });
 
-app.get("/authorize", async (req, res) => {
-  const accessToken = await fetchAccessToken(null, req.query.code);
-  console.log("Access Token in Express Response: ", accessToken);
-  res.json(accessToken);
-});
-
-app.get("/sync-data", async (req, res) => {
-  const { syncDays, projects, tasks, users, loggings } = req.query;
-  if (!projects) await syncRedboothProjects();
-  if (!tasks) await syncRedboothProjectsTasks();
-  if (!users) await syncRedboothUsers();
-  if (!loggings) await syncRedboothTasksLoggings(syncDays);
-  res.send("Synchronization has been completed!");
-});
-
 //Routes which should handle requests
+app.use("/authorize", authorizeDataRoutes);
+app.use("/sync-data", syncDataRoutes);
 app.use("/invoice", invoiceRoutes);
 app.use("/invoice/generate-invoice", generateInvoiceRoutes);
 app.use("/render-users", renderUsersRoutes);
