@@ -6,10 +6,27 @@ const Invoice = require("../../api/models/invoice");
 
 router.get("/", (req, res, next) => {
   Invoice.find()
+    .select("_id userId project weekEnding rate subTotal")
     .exec()
     .then((docs) => {
-      console.log(docs);
-      res.status(200).json(docs);
+      const response = {
+        count: docs.length,
+        data: docs.map((doc) => {
+          return {
+            _id: doc._id,
+            userId: doc.userId,
+            project: doc.project,
+            weekEnding: doc.weekEnding,
+            rate: doc.rate,
+            subTotal: doc.subTotal,
+            request: {
+              type: "GET",
+              url: "http://localhost:3001/invoice/" + doc._id,
+            },
+          };
+        }),
+      };
+      res.status(200).json(response);
     })
     .catch((err) => {
       console.log(err);
@@ -33,7 +50,7 @@ router.post("/", (req, res, next) => {
     .then((result) => {
       console.log(result);
       res.status(201).json({
-        message: "Handling POST requests to /invoice",
+        message: "Created invoice successfully",
         createdInvoice: result,
       });
     })

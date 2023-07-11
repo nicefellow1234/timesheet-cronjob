@@ -6,10 +6,24 @@ const Project = require("../../api/models/project");
 
 router.get("/", (req, res, next) => {
   Project.find()
+    .select("_id name rbProjectId")
     .exec()
     .then((docs) => {
-      console.log(docs);
-      res.status(200).json(docs);
+      const response = {
+        count: docs.length,
+        data: docs.map((doc) => {
+          return {
+            _id: doc._id,
+            name: doc.name,
+            rbProjectId: doc.rbProjectId,
+            request: {
+              type: "GET",
+              url: "http://localhost:3001/projects/" + doc._id,
+            },
+          };
+        }),
+      };
+      res.status(200).json(response);
     })
     .catch((err) => {
       console.log(err);
@@ -30,8 +44,16 @@ router.post("/", (req, res, next) => {
     .then((result) => {
       console.log(result);
       res.status(201).json({
-        message: "Handling POST requests to /projects",
-        createdProject: result,
+        message: "Created project successfully",
+        data: {
+          _id: result._id,
+          name: result.name,
+          rbProjectId: result.rbProjectId,
+          request: {
+            type: "GET",
+            url: "http://localhost:3001/projects/" + result._id,
+          },
+        },
       });
     })
     .catch((err) => {
@@ -72,7 +94,13 @@ router.put("/:projectId", (req, res, next) => {
     .exec()
     .then((result) => {
       console.log(result);
-      res.status(200).json(result);
+      res.status(200).json({
+        message: "Project updated",
+        request: {
+          type: "GET",
+          url: "http://localhost:3001/projects/" + id,
+        },
+      });
     })
     .catch((err) => {
       console.log(err);
@@ -90,7 +118,11 @@ router.delete("/:projectId", (req, res, next) => {
       console.log(result);
       res.status(200).json({
         message: "Project deleted successfully",
-        deletedProject: result,
+        request: {
+          type: "POST",
+          url: "http://localhost:3001/projects/",
+          body: { rbProjectId: "Number", name: "String" },
+        },
       });
     })
     .catch((err) => {

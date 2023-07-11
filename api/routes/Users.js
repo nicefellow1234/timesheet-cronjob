@@ -1,16 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
-// const { renderUsersLoggings } = require("../../common/renderMethods");
 
 const User = require("../models/users");
 
 router.get("/", (req, res, next) => {
   User.find()
+    .select("_id rbUserId name username email password status")
     .exec()
     .then((docs) => {
       console.log(docs);
-      res.status(200).json(docs);
+      const response = {
+        count: docs.length,
+        data: docs.map((doc) => {
+          return {
+            _id: doc._id,
+            rbUserId: doc.rbUserId,
+            name: doc.name,
+            username: doc.username,
+            email: doc.email,
+            password: doc.password,
+            status: doc.status,
+            request: {
+              type: "GET",
+              url: "http://localhost:3001/render-users/" + doc._id,
+            },
+          };
+        }),
+      };
+      res.status(200).json(response);
     })
     .catch((err) => {
       console.log(err);
@@ -35,7 +53,7 @@ router.post("/", (req, res, next) => {
     .then((result) => {
       console.log(result);
       res.status(201).json({
-        message: "Handling POST requests to /users",
+        message: "User created successfully",
         createdUser: result,
       });
     })
