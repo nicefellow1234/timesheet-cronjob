@@ -191,7 +191,16 @@
                     <div class="text-center text-2xl font-medium mb-2">
                         Render Loggings Data
                     </div>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-4 gap-2">
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Select User</label>
+                            <select name="userId" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <% for (const user of users) { %>
+                                    <option value="<%= user.rbUserId %>"><%= user.name %></option>
+                                <% } %>
+                                    <option value="" selected>All Users</option>
+                            </select>
+                        </div>
                         <div class="mt-1 space-y-2">
                             <label class="block text-sm font-medium leading-6 text-gray-900">Select Month</label>
                             <select name="month" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
