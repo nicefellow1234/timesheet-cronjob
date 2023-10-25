@@ -63,10 +63,13 @@ const unixTimestampToDate = (timestamp) => {
     return new Date(timestamp * 1000);
 }
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
 module.exports = {
     toHoursAndMinutes,
     getLastSundayOfMonth,
     getWeeklyRanges,
     dateToUnixTimestamp,
-    unixTimestampToDate
+    unixTimestampToDate,
+    delay
 }

@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { getAccessToken } = require('./authenticateRedbooth.js');
 const { Project, User, Task, Logging, saveRecord } = require('./db.js');
-const { dateToUnixTimestamp } = require('./util.js');
+const { dateToUnixTimestamp, delay } = require('./util.js');
 
 const REDBOOTH_API_HOST = 'https://redbooth.com/api/3';
 const PROJECTS_ENDPOINT = '/projects';
@@ -11,8 +11,18 @@ const COMMENTS_ENDPOINT = '/comments';
 const last_year_start_date = dateToUnixTimestamp(new Date(new Date().getFullYear() - 1, 0, 1));
 const current_year_start_date = dateToUnixTimestamp(new Date(new Date().getFullYear(), 0, 1));
 const current_end_date = dateToUnixTimestamp(new Date());
+var delayTime = 0;
 
-const fetchRedboothData = async ({endpoint, endpointParams}) => {
+const fetchRedboothData = async ({endpoint, endpointParams, setDelay}) => {
+    // If setDelay is true then increment delayTime by 1 second
+    if (setDelay) {
+        delayTime++;
+    }
+    // If delayTime is more than 0 seconds then make sure that you wait for the set delay time
+    if (delayTime > 0) {
+        console.log('Waiting for ' + delayTime + ' seconds!')
+        await delay(delayTime * 1000);
+    }
     const accessToken =  await getAccessToken();
     const response = await axios.get(REDBOOTH_API_HOST + endpoint, {
         params: {
@@ -133,42 +143,47 @@ const syncRedboothTasksLoggings = async (syncDays = null) => {
     }
     const tasks = await Task.find({ updatedAt: { $gt: updatedAtTimestamp } });
     for (const task of tasks) {
+        var loggingParams = {
+            endpoint: COMMENTS_ENDPOINT,
+            endpointParams: {
+                target_type: 'Task',
+                target_id: task.rbTaskId,
+                created_from: updatedAtTimestamp,
+                created_to: current_end_date,
+                order: 'created_at-DESC'
+            }
+        }
         try {
-            const loggings = await fetchRedboothData({
-                endpoint: COMMENTS_ENDPOINT,
-                endpointParams: {
-                    target_type: 'Task',
-                    target_id: task.rbTaskId,
-                    created_from: updatedAtTimestamp,
-                    created_to: current_end_date,
-                    order: 'created_at-DESC'
-                }
-            });
-            var loggingStatus = false;
-            for (const logging of loggings) {
-                if (logging.minutes) {
-                    loggingStatus = true;
-                    await saveRecord({
-                        model: Logging,
-                        modelData: {
-                            rbCommentId: logging.id,
-                            rbUserId: logging.user_id,
-                            rbTaskId: logging.target_id,
-                            minutes: logging.minutes,
-                            timeTrackingOn: logging.time_tracking_on,
-                            createdAt: logging.created_at
-                        },
-                        modelSearchData: { 
-                            rbCommentId: logging.id
-                        }
-                    });
-                }
-            }
-            if (loggingStatus) {
-                console.log(`All loggings saved successfully for ${task.name} task !`);
-            }
+            var loggings = await fetchRedboothData(loggingParams);
         } catch (err) {
             console.error('Error fetching Redbooth loggings: ',err);
+            var loggings = await fetchRedboothData({
+                ...loggingParams,
+                setDelay: true
+            });
+        }
+        var loggingStatus = false;
+        for (const logging of loggings) {
+            if (logging.minutes) {
+                loggingStatus = true;
+                await saveRecord({
+                    model: Logging,
+                    modelData: {
+                        rbCommentId: logging.id,
+                        rbUserId: logging.user_id,
+                        rbTaskId: logging.target_id,
+                        minutes: logging.minutes,
+                        timeTrackingOn: logging.time_tracking_on,
+                        createdAt: logging.created_at
+                    },
+                    modelSearchData: { 
+                        rbCommentId: logging.id
+                    }
+                });
+            }
+        }
+        if (loggingStatus) {
+            console.log(`All loggings saved successfully for ${task.name} task !`);
         }
     }
     console.log('All of the loggings have been successfully saved!');

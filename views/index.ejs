@@ -186,6 +186,52 @@
                         Generate Invoice
                     </button>
                 </form>
+                <hr>
+                <form target="_blank" class="mb-5 mt-5" action="/render-data">
+                    <div class="text-center text-2xl font-medium mb-2">
+                        Render Loggings Data
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Month</label>
+                            <select name="month" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                                <option value="">All Time</option>
+                            </select>
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Year</label>
+                            <select name="year" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <option value="2023">2023</option>
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026">2026</option>
+                                <option value="">All Time</option>
+                            </select>
+                        </div>
+                        <div class="mt-1 space-y-2">
+                            <label class="block text-sm font-medium leading-6 text-gray-900">Invoice Data</label>
+                            <select name="invoice" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                                <option value="1" selected>Yes</option>
+                                <option value="">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800">
+                        Render Data
+                    </button>
+                </form>
             </div>
         </div>
     </div>
