@@ -64,7 +64,7 @@ We have completed the installation now we can move ahead to start populating the
 
 For ease of use, we have added an index page which is available at the app root URL i.e. at http://localhost:3000/ where you can perform all of the below operations from the UI.
 
-<img width="588" alt="image" src="https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/a8acd89f-2f41-45a0-bf35-688b71c99a84">
+![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/b66e21d0-40c8-4123-8dee-dd1622bc8f05)
 
 
 
