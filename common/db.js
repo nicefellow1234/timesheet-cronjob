@@ -43,14 +43,28 @@ const Logging = mongoose.model('loggings', loggingSchema);
 // Models Definitions - (END) //
 
 // Models Methods
-const saveRecord = async ({model, modelData, modelSearchData, recordData = null}) => {
+const saveRecord = async ({model, modelData, modelSearchData}) => {
     const dbRecord = await model.findOne(modelSearchData).exec();
     if (!dbRecord) {
         const record = new model(modelData);
         await record.save();
-    } else if (dbRecord && recordData && dbRecord.updatedAt != recordData.updated_at) {
-        dbRecord.updatedAt = recordData.updated_at;
-        await dbRecord.save();
+    } else {
+        // Set update status to false by default
+        // To avoid saving the dbRecord without any reason if we don't have any updated fields in there
+        let updateStatus = false;
+        // Loop through the object keys and compare both objects i.e. dbRecord & modelData
+        // If there are any updates fields found in the modelData then update dbRecord with that field 
+        for (const key in modelData) {
+            if (dbRecord[key] != modelData[key]) {
+                dbRecord[key] = modelData[key];
+                updateStatus = true;
+            }
+        }
+        // At last if even we have a single field which has been updated 
+        // Only then we need to save the dbRecord again to the DB
+        if (updateStatus) {
+            await dbRecord.save();
+        }
     }
 }
 

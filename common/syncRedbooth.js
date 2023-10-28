@@ -85,8 +85,7 @@ const syncRedboothProjectsTasks = async () => {
                         },
                         modelSearchData: { 
                             rbTaskId: task.id
-                        },
-                        recordData: task
+                        }
                     };
                     // Make sure that we only store tasks which have been updated in current year
                     if (task.updated_at >= current_year_start_date) {
