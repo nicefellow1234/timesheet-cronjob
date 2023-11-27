@@ -1,38 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Timesheet Cronjob + Invoice Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
     <script>
-        $(document).ready(function(){
-            $('form#syncDataForm').on('submit', function(e) {
-                e.preventDefault();
-                let syncDays = $(this).find('input[name="syncDays"]').val();
-                if (!syncDays || syncDays == 0) {
-                    var formFields = $(this).find('input[name!="syncDays"]').serialize();
-                } else {
-                    var formFields = $(this).serialize();
-                }
-                window.open($(this).attr('action') + '?' + formFields, '_blank').focus();
-            });
+      $(document).ready(function () {
+        $("form#syncDataForm").on("submit", function (e) {
+          e.preventDefault();
+          let syncDays = $(this).find('input[name="syncDays"]').val();
+          if (!syncDays || syncDays == 0) {
+            var formFields = $(this)
+              .find('input[name!="syncDays"]')
+              .serialize();
+          } else {
+            var formFields = $(this).serialize();
+          }
+          window
+            .open($(this).attr("action") + "?" + formFields, "_blank")
+            .focus();
         });
+      });
 
-        // Add custom item
-        $(document).on('click', '.addCustomItem', function(e){
-            e.preventDefault();
-            $('.customItemContainer').append(
-                `<div class="customItem grid grid-cols-12 gap-2">
+      // Add custom item
+      $(document).on("click", ".addCustomItem", function (e) {
+        e.preventDefault();
+        $(".customItemContainer").append(
+          `<div class="customItem grid grid-cols-12 gap-2">
                     <div class="col-span-11 grid grid-cols-2 gap-2">
                         <div class="mt-1 space-y-2">
                             <label class="block text-sm font-medium leading-6 text-gray-900">Custom Item</label>
-                            <input type="text" name="customItem" class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
+                            <input type="text" name="customItem" class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
                         </div>
                         <div class="mt-1 space-y-2">
                             <label class="block text-sm font-medium leading-6 text-gray-900">Custom Value</label>
-                            <input type="text" name="customValue" class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
+                            <input type="text" name="customValue" class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
                         </div>
                     </div>
                     <div class="flex items-end">
@@ -43,206 +47,375 @@
                         </button>
                     </div>
                 </div>`
-            );
-        });
+        );
+      });
 
-        // Remove custom item
-        $(document).on('click', '.removeCustomItem', function(e){
-            $(this).parents('.customItem').remove();
-        });
+      // Add custom item
+      $(document).on("click", ".overrideProjectHourlyRateBtn", function (e) {
+        e.preventDefault();
+
+        // Convert the EJS projects into JSON string
+        var projects = JSON.parse(
+          "<%= JSON.stringify(projects) %>".replace(/&#34;/g, '"')
+        );
+
+        // Now map the options in there so that we can use them into our own select tag
+        const selectOptions = projects
+          .map(
+            (project) =>
+              `<option value="${project.rbProjectId}">${project.name}</option>`
+          )
+          .join("");
+
+        const selectElement = `
+            <div class="overrideProjectHourlyRate grid grid-cols-12 gap-2">
+                <div class="col-span-11 grid grid-cols-2 gap-2">
+                    <div class="mt-1 space-y-2">
+                        <label class="block text-sm font-medium leading-6 text-gray-900">Project</label>
+                        <select name="overrideProject" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                            ${selectOptions}
+                        </select>
+                    </div>
+                    <div class="mt-1 space-y-2">
+                        <label class="block text-sm font-medium leading-6 text-gray-900">Project Hourly Rate</label>
+                        <input type="text" name="overrideProjectRate" class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                    </div>
+                </div>
+                <div class="flex items-end">
+                    <button type="button" class="removeOverrideProjectHourlyRate w-full bg-white rounded-md p-[5px] inline-flex items-center justify-center text-gray-400 border-2 border-gray-300 hover:text-gray-500 hover:border-2 hover:border-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
+                        <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>`;
+
+        $(".overrideProjectHourlyRateContainer").append(selectElement);
+      });
+
+      // Remove custom item
+      $(document).on(
+        "click",
+        ".removeCustomItem, .removeOverrideProjectHourlyRate",
+        function (e) {
+          $(this).parents(".customItem").remove();
+          $(this).parents(".overrideProjectHourlyRate").remove();
+        }
+      );
     </script>
-</head>
-<body class="bg-gray-300">
+  </head>
+  <body class="bg-gray-300">
     <div class="container max-w-3xl mx-auto mt-5">
-        <div class="text-3xl font-semibold text-center mb-5">
-            Timesheet Cronjob + Invoice Generator
-        </div>
-        <div class="p-5 border-2 rounded-lg border-[1px] border-gray-400 shadow-sm bg-white">
-            <div class="mt-1 mb-2">
-                <div class="text-center text-2xl font-medium mb-2">
-                    Sync Redbooth Data
-                </div>
-                <div class="text-center mt-5">
-                    <a target="_blank" href="/sync-data" class="p-2 rounded-md text-white bg-blue-500 hover:bg-blue-800">
-                        Sync All Redbooth Data
-                    </a>
-                </div>
-                <form id="syncDataForm" class="mb-5" action="/sync-data">
-                    <div class="mt-4">
-                        Check the Radio boxes next to each type of data that you don't want to Sync
-                    </div>
-                    <div class="grid grid-cols-2">
-                        <div class="mt-1 space-y-2">
-                            <div class="relative flex gap-x-3">
-                                <div class="flex h-6 items-center">
-                                    <input name="projects" checked type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
-                                </div>
-                                <div class="text-sm leading-6">
-                                    <label class="font-medium text-gray-900" for="comments">Projects</label>
-                                </div>
-                            </div>
-                            <div class="relative flex gap-x-3">
-                                <div class="flex h-6 items-center">
-                                    <input name="tasks" type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
-                                </div>
-                                <div class="text-sm leading-6">
-                                    <label class="font-medium text-gray-900" for="comments">Tasks</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <div class="relative flex gap-x-3">
-                                <div class="flex h-6 items-center">
-                                    <input name="users" checked type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
-                                </div>
-                                <div class="text-sm leading-6">
-                                    <label class="font-medium text-gray-900" for="comments">Users</label>
-                                </div>
-                            </div>
-                            <div class="relative flex gap-x-3">
-                                <div class="flex h-6 items-center">
-                                    <input name="loggings" type="checkbox" value="0" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600">
-                                </div>
-                                <div class="text-sm leading-6">
-                                    <label class="font-medium text-gray-900" for="comments">Loggings</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Sync Days</label>
-                            <input type="number" name="syncDays" min="0" value="1" class="p-2  block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
-                        </div>
-                    </div>
-                    <button type="submit" class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800">
-                        Sync Specific Data
-                    </button>
-                </form>
-                <hr>
-                <form target="_blank" class="mb-5 mt-5" action="/generate-invoice">
-                    <div class="text-center text-2xl font-medium mb-2">
-                        Generate Monthly Invoice
-                    </div>
-                    <div class="grid grid-cols-3 gap-2">
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Select User</label>
-                            <select name="userId" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <% for (const user of users) { %>
-                                    <option value="<%= user.rbUserId %>"><%= user.name %></option>
-                                <% } %>
-                            </select>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Month</label>
-                            <select name="month" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Year</label>
-                            <select name="year" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <option value="2023" selected>2023</option>
-                                <option value="2024">2024</option>
-                                <option value="2025">2025</option>
-                                <option value="2026">2026</option>
-                            </select>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Hourly Rate</label>
-                            <input type="number" name="hourlyRate" step="any" min="0" value="1" class="p-2  block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Invoice No</label>
-                            <input type="number" name="invoiceNo" min="0" value="1" class="p-2  block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"> 
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Generate PDF</label>
-                            <select name="generatePdf" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <option value="1" selected>Yes</option>
-                                <option value="null">No</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="customItemContainer">
-                        
-                    </div>
-                    <div>
-                        <button type="submit" class="addCustomItem p-[4px] mt-3 px-3 text-sm rounded-md text-white bg-pink-500 hover:bg-pink-800">
-                            Add Custom Item
-                        </button>
-                    </div>
-                    <!-- <input type="hidden" name="generatePdf" value="1"> -->
-                    <button type="submit" class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800">
-                        Generate Invoice
-                    </button>
-                </form>
-                <hr>
-                <form target="_blank" class="mb-5 mt-5" action="/render-data">
-                    <div class="text-center text-2xl font-medium mb-2">
-                        Render Loggings Data
-                    </div>
-                    <div class="grid grid-cols-4 gap-2">
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Select User</label>
-                            <select name="userId" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <% for (const user of users) { %>
-                                    <option value="<%= user.rbUserId %>"><%= user.name %></option>
-                                <% } %>
-                                    <option value="" selected>All Users</option>
-                            </select>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Month</label>
-                            <select name="month" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                                <option value="">All Time</option>
-                            </select>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Select Year</label>
-                            <select name="year" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <option value="2023">2023</option>
-                                <option value="2024">2024</option>
-                                <option value="2025">2025</option>
-                                <option value="2026">2026</option>
-                                <option value="">All Time</option>
-                            </select>
-                        </div>
-                        <div class="mt-1 space-y-2">
-                            <label class="block text-sm font-medium leading-6 text-gray-900">Invoice Data</label>
-                            <select name="invoice" class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                                <option value="1" selected>Yes</option>
-                                <option value="">No</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit" class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800">
-                        Render Data
-                    </button>
-                </form>
+      <div class="text-3xl font-semibold text-center mb-5">
+        Timesheet Cronjob + Invoice Generator
+      </div>
+      <div
+        class="p-5 border-2 rounded-lg border-[1px] border-gray-400 shadow-sm bg-white"
+      >
+        <div class="mt-1 mb-2">
+          <div class="text-center text-2xl font-medium mb-2">
+            Sync Redbooth Data
+          </div>
+          <div class="text-center mt-5">
+            <a
+              target="_blank"
+              href="/sync-data"
+              class="p-2 rounded-md text-white bg-blue-500 hover:bg-blue-800"
+            >
+              Sync All Redbooth Data
+            </a>
+          </div>
+          <form id="syncDataForm" class="mb-5" action="/sync-data">
+            <div class="mt-4">
+              Check the Radio boxes next to each type of data that you don't
+              want to Sync
             </div>
+            <div class="grid grid-cols-2">
+              <div class="mt-1 space-y-2">
+                <div class="relative flex gap-x-3">
+                  <div class="flex h-6 items-center">
+                    <input
+                      name="projects"
+                      checked
+                      type="checkbox"
+                      value="0"
+                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                    />
+                  </div>
+                  <div class="text-sm leading-6">
+                    <label class="font-medium text-gray-900" for="comments"
+                      >Projects</label
+                    >
+                  </div>
+                </div>
+                <div class="relative flex gap-x-3">
+                  <div class="flex h-6 items-center">
+                    <input
+                      name="tasks"
+                      type="checkbox"
+                      value="0"
+                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                    />
+                  </div>
+                  <div class="text-sm leading-6">
+                    <label class="font-medium text-gray-900" for="comments"
+                      >Tasks</label
+                    >
+                  </div>
+                </div>
+              </div>
+              <div class="mt-1 space-y-2">
+                <div class="relative flex gap-x-3">
+                  <div class="flex h-6 items-center">
+                    <input
+                      name="users"
+                      checked
+                      type="checkbox"
+                      value="0"
+                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                    />
+                  </div>
+                  <div class="text-sm leading-6">
+                    <label class="font-medium text-gray-900" for="comments"
+                      >Users</label
+                    >
+                  </div>
+                </div>
+                <div class="relative flex gap-x-3">
+                  <div class="flex h-6 items-center">
+                    <input
+                      name="loggings"
+                      type="checkbox"
+                      value="0"
+                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                    />
+                  </div>
+                  <div class="text-sm leading-6">
+                    <label class="font-medium text-gray-900" for="comments"
+                      >Loggings</label
+                    >
+                  </div>
+                </div>
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Sync Days</label
+                >
+                <input
+                  type="number"
+                  name="syncDays"
+                  min="0"
+                  value="1"
+                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800"
+            >
+              Sync Specific Data
+            </button>
+          </form>
+          <hr />
+          <form target="_blank" class="mb-5 mt-5" action="/generate-invoice">
+            <div class="text-center text-2xl font-medium mb-2">
+              Generate Monthly Invoice
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Select User</label
+                >
+                <select
+                  name="userId"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <% for (const user of users) { %>
+                  <option value="<%= user.rbUserId %>"><%= user.name %></option>
+                  <% } %>
+                </select>
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Select Month</label
+                >
+                <select
+                  name="month"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Select Year</label
+                >
+                <select
+                  name="year"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <option value="2023" selected>2023</option>
+                  <option value="2024">2024</option>
+                  <option value="2025">2025</option>
+                  <option value="2026">2026</option>
+                </select>
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Hourly Rate</label
+                >
+                <input
+                  type="number"
+                  name="hourlyRate"
+                  step="any"
+                  min="0"
+                  value="1"
+                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Invoice No</label
+                >
+                <input
+                  type="number"
+                  name="invoiceNo"
+                  min="0"
+                  value="1"
+                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                />
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Generate PDF</label
+                >
+                <select
+                  name="generatePdf"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <option value="1" selected>Yes</option>
+                  <option value="null">No</option>
+                </select>
+              </div>
+            </div>
+            <div class="overrideProjectHourlyRateContainer"></div>
+            <div>
+              <button
+                type="submit"
+                class="overrideProjectHourlyRateBtn p-[4px] mt-3 px-3 text-sm rounded-md text-white bg-pink-500 hover:bg-pink-800"
+              >
+                Override Project Hourly Rate
+              </button>
+            </div>
+            <div class="customItemContainer"></div>
+            <div>
+              <button
+                type="submit"
+                class="addCustomItem p-[4px] mt-3 px-3 text-sm rounded-md text-white bg-pink-500 hover:bg-pink-800"
+              >
+                Add Custom Item
+              </button>
+            </div>
+            <!-- <input type="hidden" name="generatePdf" value="1"> -->
+            <button
+              type="submit"
+              class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800"
+            >
+              Generate Invoice
+            </button>
+          </form>
+          <hr />
+          <form target="_blank" class="mb-5 mt-5" action="/render-data">
+            <div class="text-center text-2xl font-medium mb-2">
+              Render Loggings Data
+            </div>
+            <div class="grid grid-cols-4 gap-2">
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Select User</label
+                >
+                <select
+                  name="userId"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <% for (const user of users) { %>
+                  <option value="<%= user.rbUserId %>"><%= user.name %></option>
+                  <% } %>
+                  <option value="" selected>All Users</option>
+                </select>
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Select Month</label
+                >
+                <select
+                  name="month"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                  <option value="">All Time</option>
+                </select>
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Select Year</label
+                >
+                <select
+                  name="year"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <option value="2023">2023</option>
+                  <option value="2024">2024</option>
+                  <option value="2025">2025</option>
+                  <option value="2026">2026</option>
+                  <option value="">All Time</option>
+                </select>
+              </div>
+              <div class="mt-1 space-y-2">
+                <label class="block text-sm font-medium leading-6 text-gray-900"
+                  >Invoice Data</label
+                >
+                <select
+                  name="invoice"
+                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                >
+                  <option value="1" selected>Yes</option>
+                  <option value="">No</option>
+                </select>
+              </div>
+            </div>
+            <button
+              type="submit"
+              class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800"
+            >
+              Render Data
+            </button>
+          </form>
         </div>
+      </div>
     </div>
-</body>
+  </body>
 </html>

@@ -10,32 +10,40 @@
         <!-- Col -->
         <div class="text-right">
           <h2 class="text-5xl">INVOICE</h2>
-          <span class="mt-1 block text-2xl text-gray-500"># <%= data.invoiceNo %></span>
+          <span class="mt-1 block text-2xl text-gray-500"
+            ># <%= data.invoiceNo %></span
+          >
         </div>
         <!-- Col -->
       </div>
       <!-- End Grid -->
-      <div class="mt-10"> 
+      <div class="mt-10">
         <table class="w-full text-sm text-left text-gray-500">
           <tbody>
             <tr>
               <td class="text-md text-gray-500">Bill To:</td>
               <td class="text-md text-gray-500 text-right">Date:</td>
-              <td class="text-md text-black text-right"><%= data.invoiceDate %></td>
+              <td class="text-md text-black text-right">
+                <%= data.invoiceDate %>
+              </td>
             </tr>
             <tr>
               <td class="text-md text-md font-semibold text-black">
                 <%= data.companyName %>
               </td>
               <td class="text-md text-gray-500 text-right">Due Date:</td>
-              <td class="text-md text-black text-right"><%= data.invoiceDueDate %></td>
+              <td class="text-md text-black text-right">
+                <%= data.invoiceDueDate %>
+              </td>
             </tr>
             <tr>
               <td class="text-md"><%= data.companyAddress %></td>
               <td class="text-md font-semibold text-black text-right">
                 Balance Due:
               </td>
-              <td class="text-md font-semibold text-black text-right"><%= data.currency %><%= data.monthlyTotals %></td>
+              <td class="text-md font-semibold text-black text-right">
+                <%= data.currency %><%= data.monthlyTotals %>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -51,26 +59,33 @@
             </tr>
           </thead>
           <tbody>
-            <% for (const project of data.loggingsData) { %>
-                <% for (const weeklyLogging of project.projectLoggingsData) { %>
-                    <tr class="border-b border-gray-400">
-                        <td class="px-6 py-4 text-black"><%= project.name %> - Work done from <%= weeklyLogging.range %></td>
-                        <td class="px-6 py-4 text-black whitespace-nowrap"><%= weeklyLogging.weeklyTotalLoggedHours %></td>
-                        <td class="px-6 py-4 text-black whitespace-nowrap"><%= data.currency %><%= data.hourlyRate %></td>
-                        <td class="px-6 py-4 text-black whitespace-nowrap"><%= data.currency %><%= weeklyLogging.weeklyTotals %></td>
-                    </tr>
-                <% } %>
-            <% } %>
-            <% if (data.customItems && data.customItems.length) { %>
-              <% for (const cI of data.customItems) { %>
-                <tr class="border-b border-gray-400">
-                  <td class="px-6 py-4 text-black"><%= cI.item %></td>
-                  <td class="px-6 py-4 text-black whitespace-nowrap"></td>
-                  <td class="px-6 py-4 text-black whitespace-nowrap"></td>
-                  <td class="px-6 py-4 text-black whitespace-nowrap"><%= data.currency %><%= cI.value %></td>
-                </tr>
-              <% } %>
-            <% } %>
+            <% for (const project of data.loggingsData) { %> <% for (const
+            weeklyLogging of project.projectLoggingsData) { %>
+            <tr class="border-b border-gray-400">
+              <td class="px-6 py-4 text-black">
+                <%= project.name %> - Work done from <%= weeklyLogging.range %>
+              </td>
+              <td class="px-6 py-4 text-black whitespace-nowrap">
+                <%= weeklyLogging.weeklyTotalLoggedHours %>
+              </td>
+              <td class="px-6 py-4 text-black whitespace-nowrap">
+                <%= data.currency %><%= weeklyLogging.projectRate %>
+              </td>
+              <td class="px-6 py-4 text-black whitespace-nowrap">
+                <%= data.currency %><%= weeklyLogging.weeklyTotals %>
+              </td>
+            </tr>
+            <% } %> <% } %> <% if (data.customItems && data.customItems.length)
+            { %> <% for (const cI of data.customItems) { %>
+            <tr class="border-b border-gray-400">
+              <td class="px-6 py-4 text-black"><%= cI.item %></td>
+              <td class="px-6 py-4 text-black whitespace-nowrap"></td>
+              <td class="px-6 py-4 text-black whitespace-nowrap"></td>
+              <td class="px-6 py-4 text-black whitespace-nowrap">
+                <%= data.currency %><%= cI.value %>
+              </td>
+            </tr>
+            <% } %> <% } %>
           </tbody>
         </table>
       </div>
@@ -79,13 +94,19 @@
           <tbody>
             <tr>
               <td class="px-12"></td>
-              <td class="text-md text-gray-500 text-right">Total Logged Hours:</td>
-              <td class="text-md text-black text-right"><%= data.totalLoggedHours %></td>
+              <td class="text-md text-gray-500 text-right">
+                Total Logged Hours:
+              </td>
+              <td class="text-md text-black text-right">
+                <%= data.totalLoggedHours %>
+              </td>
             </tr>
             <tr>
               <td class="px-12"></td>
               <td class="text-md text-gray-500 text-right">Total:</td>
-              <td class="text-md text-black text-right"><%= data.currency %><%= data.monthlyTotals %></td>
+              <td class="text-md text-black text-right">
+                <%= data.currency %><%= data.monthlyTotals %>
+              </td>
             </tr>
           </tbody>
         </table>

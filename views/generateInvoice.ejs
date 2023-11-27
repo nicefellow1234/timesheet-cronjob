@@ -1,9 +1,10 @@
 <div class="mt-5">
-    <a target="_blank" 
-        href="/generate-invoice?userId=<%= data.userId %>&year=<%= data.year %>&month=<%= data.month %>&hourlyRate=<%= data.hourlyRate %>&invoiceNo=<%= data.invoiceNo %>&generatePdf=1<% if (data.customItems && data.customItems.length) { %><% for (const cI of data.customItems) { %>&customItem=<%= cI.item %>&customValue=<%= cI.value %><% } %>
-        <% } %>" 
-        class="ml-4 mt-10 bg-blue-500 px-4 py-2 rounded-lg font-semibold text-sm text-white">
-        Generate PDF Invoice
-    </a>
-    <%- data.renderedInvoiceTemplate %>
+  <a
+    target="_blank"
+    href="/generate-invoice?<%= queryString %>"
+    class="ml-4 mt-10 bg-blue-500 px-4 py-2 rounded-lg font-semibold text-sm text-white"
+  >
+    Generate PDF Invoice
+  </a>
+  <%- data.renderedInvoiceTemplate %>
 </div>
