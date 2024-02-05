@@ -82,8 +82,12 @@ const syncRedboothProjects = async () => {
   console.log("All of the projects have been successfully saved!");
 };
 
-const syncRedboothProjectsTasks = async () => {
-  const projects = await Project.find();
+const getProjects = async (userProjectIds) => {
+  const searchCriteria = (userProjectIds.length) ? {'_id': {$in: userProjectIds}}: {};
+  return Project.find(searchCriteria);
+}
+const syncRedboothProjectsTasks = async (userProjectIds) => {
+  const projects = await getProjects(userProjectIds);
   for (const project of projects) {
     for (const v of [true, false]) {
       try {
@@ -161,7 +165,7 @@ const syncRedboothUsers = async () => {
   console.log("All of the users have been successfully saved!");
 };
 
-const syncRedboothTasksLoggings = async (syncDays = null) => {
+const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
   if (syncDays) {
     var d = new Date();
     d.setDate(d.getDate() - syncDays);
@@ -169,7 +173,13 @@ const syncRedboothTasksLoggings = async (syncDays = null) => {
   } else {
     var updatedAtTimestamp = current_year_start_date;
   }
-  const tasks = await Task.find({ updatedAt: { $gt: updatedAtTimestamp } });
+  const projects = await getProjects(userProjectIds);
+  const rbProjectIds = [];
+  for (const project of projects) {
+    rbProjectIds.push(project.rbProjectId);
+  }
+  const filters = (rbProjectIds.length) ? { rbProjectId: { $in: rbProjectIds }, updatedAt: { $gt: updatedAtTimestamp } }: {updatedAt: { $gt: updatedAtTimestamp }};
+  const tasks = await Task.find(filters);
   for (const task of tasks) {
     var loggingParams = {
       endpoint: COMMENTS_ENDPOINT,

@@ -39,11 +39,13 @@ app.get("/authorize", async (req, res) => {
 });
 
 app.get("/sync-data", async (req, res) => {
-  const { syncDays, projects, tasks, users, loggings } = req.query;
+  let { syncDays, projects, tasks, users, loggings, userProjects } = req.query;
+  // cast param to array if one project is selected or none
+  userProjects = Array.isArray(userProjects) ? userProjects : (userProjects ? [userProjects] : []);
   if (!projects) await syncRedboothProjects();
-  if (!tasks) await syncRedboothProjectsTasks();
+  if (!tasks) await syncRedboothProjectsTasks(userProjects);
   if (!users) await syncRedboothUsers();
-  if (!loggings) await syncRedboothTasksLoggings(syncDays);
+  if (!loggings) await syncRedboothTasksLoggings(syncDays, userProjects);
   res.send("Synchronization has been completed!");
 });
 
@@ -86,7 +88,7 @@ app.get("/generate-invoice", async (req, res) => {
     overrideProject,
     overrideProjectRate
   );
-  if (generatePdf == 1) {
+  if (parseInt(generatePdf) == 1) {
     const invoiceFile = await generatePdfInvoice(data);
     res.download(invoiceFile);
   } else {
