@@ -7,7 +7,7 @@ const {
   getLastSundayOfMonth,
   getWeeklyRanges,
   dateToUnixTimestamp,
-  unixTimestampToDate,
+  unixTimestampToDate
 } = require("./util.js");
 
 const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
@@ -26,7 +26,7 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
     var userData = {
       rbUserId: user.rbUserId,
       name: user.name,
-      email: user.email,
+      email: user.email
     };
     var usertotalLoggedHours = null;
     var userLoggingsData = [];
@@ -44,10 +44,10 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
         continue;
       }
       const task = await Task.findOne({
-        rbTaskId: userLogging.rbTaskId,
+        rbTaskId: userLogging.rbTaskId
       }).exec();
       const project = await Project.findOne({
-        rbProjectId: task.rbProjectId,
+        rbProjectId: task.rbProjectId
       }).exec();
       var loggingData = {
         rbCommentId: userLogging.rbCommentId,
@@ -60,7 +60,7 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
         loggingTimestamp,
         createdAtDate: unixTimestampToDate(
           userLogging.createdAt
-        ).toLocaleDateString("en-US"),
+        ).toLocaleDateString("en-US")
       };
       usertotalLoggedHours += userLogging.minutes;
       userLoggingsData.push(loggingData);
@@ -114,7 +114,7 @@ const generateInvoiceData = async (
             loggingDate < weeklyRange.rangeEnd
           ) {
             const task = await Task.findOne({
-              rbTaskId: logging.rbTaskId,
+              rbTaskId: logging.rbTaskId
             }).exec();
             if (task.rbProjectId == project.rbProjectId) {
               weeklyLoggingsData.push({
@@ -127,7 +127,7 @@ const generateInvoiceData = async (
                 loggingDate:
                   unixTimestampToDate(loggingDate).toLocaleDateString("en-US"),
                 loggingTimestamp: loggingDate,
-                createdAtDate: unixTimestampToDate(logging.createdAt),
+                createdAtDate: unixTimestampToDate(logging.createdAt)
               });
               totalLoggedHours += logging.minutes;
               weeklyTotalLoggedHours += logging.minutes;
@@ -163,7 +163,7 @@ const generateInvoiceData = async (
               .totalTime,
             projectRate,
             weeklyTotals,
-            weeklyLoggingsData,
+            weeklyLoggingsData
           });
 
           // Add the weekly totals to monthly totals
@@ -173,7 +173,7 @@ const generateInvoiceData = async (
       if (projectLoggingsData.length) {
         loggingsData.push({
           ...project,
-          projectLoggingsData,
+          projectLoggingsData
         });
       }
     }
@@ -191,16 +191,16 @@ const generateInvoiceData = async (
     invoiceDate: endDate.toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
-      year: "numeric",
+      year: "numeric"
     }),
     invoiceDueDate: invoiceDueDate.toLocaleDateString("en-US", {
       month: "long",
       day: "numeric",
-      year: "numeric",
+      year: "numeric"
     }),
     totalLoggedHours: toHoursAndMinutes(totalLoggedHours).totalTime,
     monthlyTotals,
-    loggingsData,
+    loggingsData
   };
 
   if (customItem && customValue) {
@@ -210,7 +210,7 @@ const generateInvoiceData = async (
         if (customItem[i] && customValue[i]) {
           customItems.push({
             item: customItem[i],
-            value: customValue[i],
+            value: customValue[i]
           });
           data.monthlyTotals += parseFloat(customValue[i]);
         }
@@ -218,7 +218,7 @@ const generateInvoiceData = async (
     } else {
       customItems.push({
         item: customItem,
-        value: customValue,
+        value: customValue
       });
       data.monthlyTotals += parseFloat(customValue);
     }
@@ -239,7 +239,7 @@ const generatePdfInvoice = async (invoiceData) => {
   const browser = await puppeteer.launch({ headless: "new" });
   const page = await browser.newPage();
   await page.setContent(invoiceData.renderedInvoiceTemplate, {
-    waitUntil: "domcontentloaded",
+    waitUntil: "domcontentloaded"
   });
   // To reflect CSS used for screens instead of print
   await page.emulateMediaType("screen");
@@ -248,7 +248,7 @@ const generatePdfInvoice = async (invoiceData) => {
   let height = await page.evaluate(() => document.documentElement.offsetHeight);
   await page.pdf({
     path: invoiceFile,
-    height: height + "px",
+    height: 30 + height + "px"
   });
   await browser.close();
   return invoiceFile;
@@ -257,5 +257,5 @@ const generatePdfInvoice = async (invoiceData) => {
 module.exports = {
   renderUsersLoggings,
   generateInvoiceData,
-  generatePdfInvoice,
+  generatePdfInvoice
 };
