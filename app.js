@@ -45,15 +45,22 @@ app.get("/sync-logs", (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
+  // Keep the connection open
+  res.flushHeaders();
+
+  // Interval to send logs every 100ms
   const intervalId = setInterval(() => {
-    if (getLogs().length > 0) {
-      res.write(`${getLogs().join("\n")}\n`);
+    const logs = getLogs();
+    if (logs.length > 0) {
+      res.write(`${logs.join("\n")}\n`); // Proper SSE format with "data:"
       clearLogs(); // Clear logs after sending
     }
   }, 100);
 
+  // Clean up when the connection is closed by the client
   req.on("close", () => {
-    clearInterval(intervalId); // Clean up on client disconnect
+    clearInterval(intervalId); // Stop sending logs
+    res.end(); // Close the connection
   });
 });
 
