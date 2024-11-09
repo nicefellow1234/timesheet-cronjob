@@ -236,7 +236,10 @@ const generateInvoiceData = async (
 };
 
 const generatePdfInvoice = async (invoiceData) => {
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"] // Add these arguments to bypass sandboxing
+  });
   const page = await browser.newPage();
   await page.setContent(invoiceData.renderedInvoiceTemplate, {
     waitUntil: "domcontentloaded"
