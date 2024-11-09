@@ -2,6 +2,7 @@ const axios = require("axios");
 const { getAccessToken } = require("./authenticateRedbooth.js");
 const { Project, User, Task, Logging, saveRecord } = require("./db.js");
 const { dateToUnixTimestamp, delay } = require("./util.js");
+const { addLog, getLogs, clearLogs } = require("./logger.js");
 
 const REDBOOTH_API_HOST = "https://redbooth.com/api/3";
 const PROJECTS_ENDPOINT = "/projects";
@@ -24,7 +25,7 @@ const fetchRedboothData = async ({ endpoint, endpointParams }) => {
     try {
       // If delayTime is more than 0 seconds then make sure that you wait for the set delay time
       if (delayTime > 0) {
-        console.log("Waiting for " + delayTime + " seconds!");
+        addLog("Waiting for " + delayTime + " seconds!");
         await delay(delayTime * 1000);
       }
 
@@ -32,23 +33,21 @@ const fetchRedboothData = async ({ endpoint, endpointParams }) => {
       const response = await axios.get(REDBOOTH_API_HOST + endpoint, {
         params: {
           access_token: accessToken.access_token,
-          ...endpointParams,
-        },
+          ...endpointParams
+        }
       });
 
       return response.data;
     } catch (err) {
-      //console.log("Failed to fetch data!");
+      //addLog("Failed to fetch data!");
       // Increment delay time by 5 seconds each failed time
       delayTime += 5;
       retries++;
-      console.log(
-        `Retrying request (retry attempt ${retries}/${maxRetries})...`
-      );
+      addLog(`Retrying request (retry attempt ${retries}/${maxRetries})...`);
     }
   }
 
-  console.log(`Max retries (${maxRetries}) reached. Request failed.`);
+  addLog(`Max retries (${maxRetries}) reached. Request failed.`);
   return false;
 };
 
@@ -57,35 +56,37 @@ const syncRedboothProjects = async () => {
     const projects = await fetchRedboothData({
       endpoint: PROJECTS_ENDPOINT,
       endpointParams: {
-        order: "created_at-DESC",
-      },
+        order: "created_at-DESC"
+      }
     });
     for (const project of projects) {
       await saveRecord({
         model: Project,
         modelData: {
           rbProjectId: project.id,
-          name: project.name,
+          name: project.name
         },
         modelSearchData: {
-          rbProjectId: project.id,
-        },
+          rbProjectId: project.id
+        }
       });
-      console.log(
+      addLog(
         `Project with name ${[project.name]} has been successfully saved!`
       );
     }
-    console.log("All projects saved successfully!");
+    addLog("All projects saved successfully!");
   } catch (err) {
-    console.error("Error fetching Redbooth projects: ", err);
+    addLog(logMessage + err);
   }
-  console.log("All of the projects have been successfully saved!");
+  addLog("All of the projects have been successfully saved!");
 };
 
 const getProjects = async (userProjectIds) => {
-  const searchCriteria = (userProjectIds.length) ? {'_id': {$in: userProjectIds}}: {};
+  const searchCriteria = userProjectIds.length
+    ? { _id: { $in: userProjectIds } }
+    : {};
   return Project.find(searchCriteria);
-}
+};
 const syncRedboothProjectsTasks = async (userProjectIds) => {
   const projects = await getProjects(userProjectIds);
   for (const project of projects) {
@@ -96,8 +97,8 @@ const syncRedboothProjectsTasks = async (userProjectIds) => {
           endpointParams: {
             project_id: project.rbProjectId,
             archived: v,
-            order: "updated_at-DESC",
-          },
+            order: "updated_at-DESC"
+          }
         });
         for (const task of tasks) {
           var recordData = {
@@ -106,37 +107,37 @@ const syncRedboothProjectsTasks = async (userProjectIds) => {
               rbTaskId: task.id,
               rbProjectId: task.project_id,
               name: task.name,
-              updatedAt: task.updated_at,
+              updatedAt: task.updated_at
             },
             modelSearchData: {
-              rbTaskId: task.id,
-            },
+              rbTaskId: task.id
+            }
           };
           // Make sure that we only store tasks which have been updated in current year
           if (task.updated_at >= current_year_start_date) {
             await saveRecord(recordData);
           }
         }
-        console.log(
+        addLog(
           `All ${v ? `resolved` : "unresolved"} tasks saved successfully for ${
             project.name
           } project !`
         );
       } catch (err) {
-        console.error("Error fetching Redbooth tasks: ", err);
+        addLog("Error fetching Redbooth tasks: " + err);
       }
     }
   }
-  console.log("All of the tasks have been successfully saved!");
+  addLog("All of the tasks have been successfully saved!");
 };
 
-const syncRedboothUsers = async () => {
+const syncRedboothUsers = async (log) => {
   try {
     const users = await fetchRedboothData({
       endpoint: USERS_ENDPOINT,
       endpointParams: {
-        order: "created_at-DESC",
-      },
+        order: "created_at-DESC"
+      }
     });
     for (const user of users) {
       await saveRecord({
@@ -147,22 +148,22 @@ const syncRedboothUsers = async () => {
           username: user.username,
           email: user.email,
           password: Math.random().toString(36).slice(-8),
-          status: true,
+          status: true
         },
         modelSearchData: {
-          rbUserId: user.id,
-        },
+          rbUserId: user.id
+        }
       });
-      console.log(
+      addLog(
         `User with name ${
           user.first_name + " " + user.last_name
         } has been successfully saved!`
       );
     }
   } catch (err) {
-    console.error("Error fetching Redbooth users: ", err);
+    addLog("Error fetching Redbooth users: " + err);
   }
-  console.log("All of the users have been successfully saved!");
+  addLog("All of the users have been successfully saved!");
 };
 
 const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
@@ -178,7 +179,12 @@ const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
   for (const project of projects) {
     rbProjectIds.push(project.rbProjectId);
   }
-  const filters = (rbProjectIds.length) ? { rbProjectId: { $in: rbProjectIds }, updatedAt: { $gt: updatedAtTimestamp } }: {updatedAt: { $gt: updatedAtTimestamp }};
+  const filters = rbProjectIds.length
+    ? {
+        rbProjectId: { $in: rbProjectIds },
+        updatedAt: { $gt: updatedAtTimestamp }
+      }
+    : { updatedAt: { $gt: updatedAtTimestamp } };
   const tasks = await Task.find(filters);
   for (const task of tasks) {
     var loggingParams = {
@@ -188,8 +194,8 @@ const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
         target_id: task.rbTaskId,
         created_from: updatedAtTimestamp,
         created_to: current_end_date,
-        order: "created_at-DESC",
-      },
+        order: "created_at-DESC"
+      }
     };
     var loggings = await fetchRedboothData(loggingParams);
     var loggingStatus = false;
@@ -205,29 +211,29 @@ const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
               rbTaskId: logging.target_id,
               minutes: logging.minutes,
               timeTrackingOn: logging.time_tracking_on,
-              createdAt: logging.created_at,
+              createdAt: logging.created_at
             },
             modelSearchData: {
-              rbCommentId: logging.id,
-            },
+              rbCommentId: logging.id
+            }
           });
         }
       }
       if (loggingStatus) {
-        console.log(`All loggings saved successfully for ${task.name} task !`);
+        addLog(`All loggings saved successfully for ${task.name} task !`);
       }
     } else {
-      console.log(
+      addLog(
         `Failed to fetch loggings for ${task.name} task after exhausting max 5 retries !`
       );
     }
   }
-  console.log("All of the loggings have been successfully saved!");
+  addLog("All of the loggings have been successfully saved!");
 };
 
 module.exports = {
   syncRedboothProjects,
   syncRedboothProjectsTasks,
   syncRedboothUsers,
-  syncRedboothTasksLoggings,
+  syncRedboothTasksLoggings
 };

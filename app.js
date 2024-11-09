@@ -8,13 +8,14 @@ const {
   syncRedboothProjects,
   syncRedboothProjectsTasks,
   syncRedboothUsers,
-  syncRedboothTasksLoggings,
+  syncRedboothTasksLoggings
 } = require("./common/syncRedbooth.js");
 const {
   renderUsersLoggings,
   generateInvoiceData,
-  generatePdfInvoice,
+  generatePdfInvoice
 } = require("./common/renderMethods.js");
+const { addLog, getLogs, clearLogs } = require("./common/logger.js");
 const { User, Logging, Project } = require("./common/db.js");
 
 // Set ejs as express view engine
@@ -26,7 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/", async (req, res) => {
   const userIdsWithLoggings = await Logging.find().distinct("rbUserId");
   const users = await User.find({
-    rbUserId: { $in: userIdsWithLoggings },
+    rbUserId: { $in: userIdsWithLoggings }
   }).lean();
   const projects = await Project.find().lean();
   res.render("index", { users, projects });
@@ -34,19 +35,55 @@ app.get("/", async (req, res) => {
 
 app.get("/authorize", async (req, res) => {
   const accessToken = await fetchAccessToken(null, req.query.code);
-  console.log("Access Token in Express Response: ", accessToken);
+  addLog("Access Token in Express Response: " + accessToken);
   res.json(accessToken);
 });
 
+// Real-time logs endpoint using Server-Sent Events (SSE)
+app.get("/sync-logs", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const intervalId = setInterval(() => {
+    if (getLogs().length > 0) {
+      res.write(`${getLogs().join("\n")}\n`);
+      clearLogs(); // Clear logs after sending
+    }
+  }, 100);
+
+  req.on("close", () => {
+    clearInterval(intervalId); // Clean up on client disconnect
+  });
+});
+
+// Main sync-data route to initiate synchronization
 app.get("/sync-data", async (req, res) => {
   let { syncDays, projects, tasks, users, loggings, userProjects } = req.query;
-  // cast param to array if one project is selected or none
-  userProjects = Array.isArray(userProjects) ? userProjects : (userProjects ? [userProjects] : []);
-  if (!projects) await syncRedboothProjects();
-  if (!tasks) await syncRedboothProjectsTasks(userProjects);
-  if (!users) await syncRedboothUsers();
-  if (!loggings) await syncRedboothTasksLoggings(syncDays, userProjects);
-  res.send("Synchronization has been completed!");
+  try {
+    userProjects = Array.isArray(userProjects)
+      ? userProjects
+      : userProjects
+      ? [userProjects]
+      : [];
+    if (!projects) {
+      await syncRedboothProjects();
+    }
+    if (!users) {
+      await syncRedboothUsers(addLog);
+    }
+    if (!tasks) {
+      await syncRedboothProjectsTasks(userProjects);
+    }
+    if (!loggings) {
+      await syncRedboothTasksLoggings(syncDays, userProjects);
+    }
+    addLog("Synchronization completed!");
+    res.send("Synchronization has been completed!");
+  } catch (error) {
+    addLog("Error during synchronization: " + error.message);
+    res.status(500).send("Synchronization failed.");
+  }
 });
 
 app.get("/render-data", async (req, res) => {
@@ -55,7 +92,7 @@ app.get("/render-data", async (req, res) => {
     month,
     year,
     invoice,
-    userId,
+    userId
   });
   if (json) {
     res.json(loggingsData);
@@ -75,7 +112,7 @@ app.get("/generate-invoice", async (req, res) => {
     customItem,
     customValue,
     overrideProject,
-    overrideProjectRate,
+    overrideProjectRate
   } = req.query;
   var data = await generateInvoiceData(
     month,
@@ -103,7 +140,7 @@ app.get("/generate-invoice", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`App listening on port ${port}`);
+  addLog(`App listening on port ${port}`);
 });
 
 // syncRedboothProjects();
