@@ -39,7 +39,13 @@ const fetchRedboothData = async ({ endpoint, endpointParams }) => {
 
       return response.data;
     } catch (err) {
-      //addLog("Failed to fetch data!");
+      // Extract and log the error message and status code (if available)
+      const errorMessage = err.response?.data || err.message;
+      const statusCode = err.response?.status || "Unknown Status Code";
+      addLog(
+        `Failed to fetch data! Error: ${errorMessage}, Status Code: ${statusCode}`
+      );
+
       // Increment delay time by 5 seconds each failed time
       delayTime += 5;
       retries++;
@@ -203,6 +209,11 @@ const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
       for (const logging of loggings) {
         if (logging.minutes) {
           loggingStatus = true;
+
+          // Fetch the user using rbUserId
+          const user = await User.findOne({ rbUserId: logging.user_id });
+          const userName = user ? user.name : "Unknown User";
+
           await saveRecord({
             model: Logging,
             modelData: {
@@ -217,6 +228,11 @@ const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
               rbCommentId: logging.id
             }
           });
+          addLog(
+            `${userName} logged ${toHoursMinutes(logging.minutes)} for task "${
+              task.name
+            }" on ${logging.time_tracking_on}.`
+          );
         }
       }
       if (loggingStatus) {
@@ -230,6 +246,10 @@ const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
   }
   addLog("All of the loggings have been successfully saved!");
 };
+
+const toHoursMinutes = (m) => `${Math.floor(m / 60)}h ${m % 60}m`;
+
+const formatDate = (ts) => new Date(ts * 1000).toLocaleDateString("en-GB");
 
 module.exports = {
   syncRedboothProjects,
