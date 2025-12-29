@@ -43,7 +43,7 @@ Once you do that then now it's time to fire up the app and authenticate redbooth
 
 Execute the following command to start the app:
 
-    node app.js
+    npm start
 
 ### Installation - Step 3 - Authenticate Redbooth (Get Access Token from Redbooth)
 
@@ -60,7 +60,12 @@ Once you click on `Authorize` button you will be forwarded to the `Return URI` f
 
 We have completed the installation now we can move ahead to start populating the database by fetching data from redbooth.
 
-## Usage
+## Running the application
+
+To start the application, you can use one of the following commands:
+
+- `npm start`: Starts the application in production mode.
+- `npm run dev`: Starts the application in development mode with automatic restarts on file changes.
 
 For ease of use, we have added an index page which is available at the app root URL i.e. at http://localhost:3000/ where you can perform all of the below operations from the UI.
 
