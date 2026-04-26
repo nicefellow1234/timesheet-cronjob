@@ -1,9 +1,12 @@
 const mongoose = require("mongoose");
+const { addLog } = require("./logger.js");
 
 // Connect to DB
-connectDb().catch((err) => console.log(err));
+connectDb().catch((err) => addLog("MongoDB connection failed: " + err.message));
 async function connectDb() {
+  addLog("Connecting to MongoDB.");
   await mongoose.connect(process.env.MONGODB_URI);
+  addLog("MongoDB connected.");
 }
 
 // Models Definitions - (START) //
@@ -56,10 +59,12 @@ const Logging = mongoose.model("loggings", loggingSchema);
 
 // Models Methods
 const saveRecord = async ({ model, modelData, modelSearchData }) => {
+  const modelName = model.modelName || "record";
   const dbRecord = await model.findOne(modelSearchData).exec();
   if (!dbRecord) {
     const record = new model(modelData);
     await record.save();
+    addLog(`${modelName} created: ${JSON.stringify(modelSearchData)}.`);
   } else {
     // Set update status to false by default
     // To avoid saving the dbRecord without any reason if we don't have any updated fields in there
@@ -76,6 +81,9 @@ const saveRecord = async ({ model, modelData, modelSearchData }) => {
     // Only then we need to save the dbRecord again to the DB
     if (updateStatus) {
       await dbRecord.save();
+      addLog(`${modelName} updated: ${JSON.stringify(modelSearchData)}.`);
+    } else {
+      addLog(`${modelName} unchanged: ${JSON.stringify(modelSearchData)}.`);
     }
   }
 };

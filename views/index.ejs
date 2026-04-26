@@ -5,9 +5,123 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Timesheet Cronjob + Invoice Generator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .select2-container--default .select2-selection--multiple {
+        height: 36px;
+        max-height: 36px;
+        border: 0;
+        border-radius: 0.375rem;
+        box-shadow: inset 0 0 0 1px rgb(209 213 219);
+        padding: 5px 32px 5px 12px;
+      }
+
+      .select2-container--default.select2-container--focus
+        .select2-selection--multiple {
+        box-shadow: inset 0 0 0 2px rgb(79 70 229);
+      }
+
+      .select2-container--default
+        .select2-selection--multiple
+        .select2-selection__choice {
+        background-color: rgb(238 242 255);
+        border-color: rgb(199 210 254);
+        border-radius: 0.25rem;
+        color: rgb(31 41 55);
+        font-size: 1rem;
+        line-height: 1.25rem;
+        margin: 0 4px 0 0;
+        padding: 1px 8px 1px 24px;
+        position: relative;
+      }
+
+      .select2-container--default
+        .select2-selection--multiple
+        .select2-selection__choice__remove {
+        align-items: center;
+        border-right: 1px solid rgb(199 210 254);
+        color: rgb(107 114 128);
+        display: flex;
+        height: 100%;
+        left: 0;
+        padding: 0 7px;
+        position: absolute;
+        top: 0;
+      }
+
+      .select2-container--default
+        .select2-selection--multiple
+        .select2-selection__choice__remove:hover {
+        background-color: rgb(224 231 255);
+        color: rgb(31 41 55);
+      }
+
+      .select2-container--default
+        .select2-selection--multiple
+        .select2-selection__clear {
+        align-items: center;
+        color: rgb(17 24 39);
+        display: flex;
+        font-size: 1.25rem;
+        height: 100%;
+        margin: 0;
+        padding: 0 12px;
+        position: absolute;
+        right: 0;
+        top: -4px;
+      }
+
+      .select2-container--default
+        .select2-selection--multiple
+        .select2-search--inline
+        .select2-search__field {
+        padding: 0;
+        margin-top: 0;
+        margin-left: 0;
+        color: rgb(17 24 39);
+        font-size: 1rem;
+        line-height: 1.5rem;
+      }
+
+      .select2-container--default
+        .select2-selection--multiple
+        .select2-search--inline
+        .select2-search__field::placeholder {
+        color: rgb(156 163 175);
+        opacity: 1;
+      }
+
+      .select2-container--default .select2-results__option {
+        font-size: 1rem;
+      }
+
+      select {
+        appearance: none;
+        -moz-appearance: none;
+        -webkit-appearance: none;
+        background-color: white;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+        background-position: right 0.75rem center;
+        background-repeat: no-repeat;
+        background-size: 1.25rem;
+        height: 36px;
+        max-height: 36px;
+        padding-right: 2.25rem;
+      }
+    </style>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
       $(document).ready(function () {
+        $(".projectMultiSelect").select2({
+          placeholder: "Select projects",
+          allowClear: true,
+          width: "100%"
+        });
+
         $("form#syncDataForm").on("submit", function (e) {
           e.preventDefault();
           let syncDays = $(this).find('input[name="syncDays"]').val();
@@ -22,6 +136,41 @@
             .open($(this).attr("action") + "?" + formFields, "_blank")
             .focus();
         });
+
+        const autoInvoiceForm = $("form#autoInvoiceForm");
+        const updateAutoInvoiceNo = () => {
+          const month = parseInt(autoInvoiceForm.find('[name="month"]').val(), 10);
+          const year = parseInt(autoInvoiceForm.find('[name="year"]').val(), 10);
+          const baseInvoiceNo = parseInt(
+            autoInvoiceForm.find('[name="baseInvoiceNo"]').val(),
+            10
+          );
+          const baseInvoiceMonth = parseInt(
+            autoInvoiceForm.find('[name="baseInvoiceMonth"]').val(),
+            10
+          );
+          const baseInvoiceYear = parseInt(
+            autoInvoiceForm.find('[name="baseInvoiceYear"]').val(),
+            10
+          );
+
+          if (
+            [month, year, baseInvoiceNo, baseInvoiceMonth, baseInvoiceYear].every(
+              Number.isFinite
+            )
+          ) {
+            const invoiceNo =
+              baseInvoiceNo +
+              (year - baseInvoiceYear) * 12 +
+              (month - baseInvoiceMonth);
+            autoInvoiceForm.find(".autoInvoiceNo").val(invoiceNo);
+          }
+        };
+
+        autoInvoiceForm
+          .find('[name="month"], [name="year"], [name="baseInvoiceNo"], [name="baseInvoiceMonth"], [name="baseInvoiceYear"]')
+          .on("input change", updateAutoInvoiceNo);
+        updateAutoInvoiceNo();
       });
 
       // Add custom item
@@ -135,115 +284,291 @@
             >
               Sync Logs
             </a>
-          </div>
-          <form id="syncDataForm" class="mb-5" action="/sync-data">
-            <div class="mt-4">
-              Check the Radio boxes next to each type of data that you don't
-              want to Sync
-            </div>
-            <div class="grid grid-cols-2">
-              <div class="mt-1 space-y-2">
-                <div class="relative flex gap-x-3">
-                  <div class="flex h-6 items-center">
-                    <input
-                      name="projects"
-                      checked
-                      type="checkbox"
-                      value="0"
-                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                    />
-                  </div>
-                  <div class="text-sm leading-6">
-                    <label class="font-medium text-gray-900" for="comments"
-                      >Projects</label
-                    >
-                  </div>
-                </div>
-                <div class="relative flex gap-x-3">
-                  <div class="flex h-6 items-center">
-                    <input
-                      name="tasks"
-                      type="checkbox"
-                      value="0"
-                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                    />
-                  </div>
-                  <div class="text-sm leading-6">
-                    <label class="font-medium text-gray-900" for="comments"
-                      >Tasks</label
-                    >
-                  </div>
-                </div>
-              </div>
-              <div class="mt-1 space-y-2">
-                <div class="relative flex gap-x-3">
-                  <div class="flex h-6 items-center">
-                    <input
-                      name="users"
-                      checked
-                      type="checkbox"
-                      value="0"
-                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                    />
-                  </div>
-                  <div class="text-sm leading-6">
-                    <label class="font-medium text-gray-900" for="comments"
-                      >Users</label
-                    >
-                  </div>
-                </div>
-                <div class="relative flex gap-x-3">
-                  <div class="flex h-6 items-center">
-                    <input
-                      name="loggings"
-                      type="checkbox"
-                      value="0"
-                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                    />
-                  </div>
-                  <div class="text-sm leading-6">
-                    <label class="font-medium text-gray-900" for="comments"
-                      >Loggings</label
-                    >
-                  </div>
-                </div>
-              </div>
-              <div class="mt-1 space-y-2">
-                <label class="block text-sm font-medium leading-6 text-gray-900"
-                  >Sync Days</label
-                >
-                <input
-                  type="number"
-                  name="syncDays"
-                  min="0"
-                  value="1"
-                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                />
-              </div>
-              <div class="mt-1 space-y-2">
-                <label class="block text-sm font-medium leading-6 text-gray-900"
-                  >Projects you're working on</label
-                >
-                <select
-                  name="userProjects"
-                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm"
-                  multiple
-                >
-                  <% for (const project of projects) { %>
-                  <option value="<%= project._id %>">
-                    <%= project.name %>
-                  </option>
-                  <% } %>
-                </select>
-              </div>
-            </div>
-            <button
-              type="submit"
-              class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800"
-            >
-              Sync Specific Data
-            </button>
-          </form>
+	          </div>
+	          <% if (autoInvoiceEnabled) { %>
+	          <form
+	            id="autoInvoiceForm"
+	            target="_blank"
+	            class="mb-5 mt-5 border-t border-b border-gray-200 py-4"
+	            action="/auto-sync-invoice"
+	          >
+	            <div class="text-center text-2xl font-medium mb-2">
+	              Auto Sync + Review Invoice
+	            </div>
+	            <div class="grid grid-cols-3 gap-2">
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Project</label
+	                >
+	                <select
+	                  name="projectId"
+	                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                >
+	                  <% const selectedAutoProject = projects.find((project) => project.name == autoInvoiceSettings.projectName); %>
+	                  <% if (!selectedAutoProject) { %>
+	                  <option value="" selected><%= autoInvoiceSettings.projectName %></option>
+	                  <% } %>
+	                  <% for (const project of projects) { %>
+	                  <option
+	                    value="<%= project._id %>"
+	                    <%= project.name == autoInvoiceSettings.projectName ? "selected" : "" %>
+	                  >
+	                    <%= project.name %>
+	                  </option>
+	                  <% } %>
+	                </select>
+	                <input
+	                  type="hidden"
+	                  name="projectName"
+	                  value="<%= autoInvoiceSettings.projectName %>"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >User</label
+	                >
+	                <select
+	                  name="userId"
+	                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                >
+	                  <% const selectedAutoUser = users.find((user) => user.name == autoInvoiceSettings.userName); %>
+	                  <% if (!selectedAutoUser) { %>
+	                  <option value="" selected><%= autoInvoiceSettings.userName %></option>
+	                  <% } %>
+	                  <% for (const user of users) { %>
+	                  <option
+	                    value="<%= user.rbUserId %>"
+	                    <%= user.name == autoInvoiceSettings.userName ? "selected" : "" %>
+	                  >
+	                    <%= user.name %>
+	                  </option>
+	                  <% } %>
+	                </select>
+	                <input
+	                  type="hidden"
+	                  name="userName"
+	                  value="<%= autoInvoiceSettings.userName %>"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Hourly Rate</label
+	                >
+	                <input
+	                  type="number"
+	                  name="hourlyRate"
+	                  step="any"
+	                  min="0"
+	                  value="<%= autoInvoiceSettings.hourlyRate %>"
+	                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Invoice Month</label
+	                >
+	                <select
+	                  name="month"
+	                  class="p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                >
+	                  <option value="1" <%= autoInvoiceSettings.month == 1 ? "selected" : "" %>>January</option>
+	                  <option value="2" <%= autoInvoiceSettings.month == 2 ? "selected" : "" %>>February</option>
+	                  <option value="3" <%= autoInvoiceSettings.month == 3 ? "selected" : "" %>>March</option>
+	                  <option value="4" <%= autoInvoiceSettings.month == 4 ? "selected" : "" %>>April</option>
+	                  <option value="5" <%= autoInvoiceSettings.month == 5 ? "selected" : "" %>>May</option>
+	                  <option value="6" <%= autoInvoiceSettings.month == 6 ? "selected" : "" %>>June</option>
+	                  <option value="7" <%= autoInvoiceSettings.month == 7 ? "selected" : "" %>>July</option>
+	                  <option value="8" <%= autoInvoiceSettings.month == 8 ? "selected" : "" %>>August</option>
+	                  <option value="9" <%= autoInvoiceSettings.month == 9 ? "selected" : "" %>>September</option>
+	                  <option value="10" <%= autoInvoiceSettings.month == 10 ? "selected" : "" %>>October</option>
+	                  <option value="11" <%= autoInvoiceSettings.month == 11 ? "selected" : "" %>>November</option>
+	                  <option value="12" <%= autoInvoiceSettings.month == 12 ? "selected" : "" %>>December</option>
+	                </select>
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Invoice Year</label
+	                >
+	                <input
+	                  type="number"
+	                  name="year"
+	                  min="2000"
+	                  value="<%= autoInvoiceSettings.year %>"
+	                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Current Invoice No</label
+	                >
+	                <input
+	                  type="number"
+	                  min="0"
+	                  value="<%= autoInvoiceSettings.invoiceNo %>"
+	                  readonly
+	                  class="autoInvoiceNo p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 bg-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 sm:text-sm sm:leading-6"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Base Invoice No</label
+	                >
+	                <input
+	                  type="number"
+	                  name="baseInvoiceNo"
+	                  min="0"
+	                  value="<%= autoInvoiceSettings.baseInvoiceNo %>"
+	                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Base Invoice Month</label
+	                >
+	                <input
+	                  type="number"
+	                  name="baseInvoiceMonth"
+	                  min="1"
+	                  max="12"
+	                  value="<%= autoInvoiceSettings.baseInvoiceMonth %>"
+	                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Base Invoice Year</label
+	                >
+	                <input
+	                  type="number"
+	                  name="baseInvoiceYear"
+	                  min="2000"
+	                  value="<%= autoInvoiceSettings.baseInvoiceYear %>"
+	                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                />
+	              </div>
+	            </div>
+	            <div class="relative flex gap-x-3 mt-3">
+	              <div class="flex h-6 items-center">
+	                <input
+	                  name="syncTasks"
+	                  type="checkbox"
+	                  value="1"
+	                  <%= autoInvoiceSettings.syncTasks ? "checked" : "" %>
+	                  class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+	                />
+	              </div>
+	              <div class="text-sm leading-6">
+	                <label class="font-medium text-gray-900">Sync Tasks First</label>
+	              </div>
+	            </div>
+	            <button
+	              type="submit"
+	              class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-green-600 hover:bg-green-800"
+	            >
+	              Auto Sync + Review Invoice
+	            </button>
+	          </form>
+	          <% } %>
+	          <form id="syncDataForm" class="mb-5" action="/sync-data">
+	            <div class="mt-4">
+	              Check the Radio boxes next to each type of data that you don't
+	              want to Sync
+	            </div>
+	            <div class="grid grid-cols-2 gap-2">
+	              <div class="mt-1 space-y-2">
+	                <div class="relative flex gap-x-3">
+	                  <div class="flex h-6 items-center">
+	                    <input
+	                      name="projects"
+	                      checked
+	                      type="checkbox"
+	                      value="0"
+	                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+	                    />
+	                  </div>
+	                  <div class="text-sm leading-6">
+	                    <label class="font-medium text-gray-900">Projects</label>
+	                  </div>
+	                </div>
+	                <div class="relative flex gap-x-3">
+	                  <div class="flex h-6 items-center">
+	                    <input
+	                      name="tasks"
+	                      type="checkbox"
+	                      value="0"
+	                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+	                    />
+	                  </div>
+	                  <div class="text-sm leading-6">
+	                    <label class="font-medium text-gray-900">Tasks</label>
+	                  </div>
+	                </div>
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <div class="relative flex gap-x-3">
+	                  <div class="flex h-6 items-center">
+	                    <input
+	                      name="users"
+	                      checked
+	                      type="checkbox"
+	                      value="0"
+	                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+	                    />
+	                  </div>
+	                  <div class="text-sm leading-6">
+	                    <label class="font-medium text-gray-900">Users</label>
+	                  </div>
+	                </div>
+	                <div class="relative flex gap-x-3">
+	                  <div class="flex h-6 items-center">
+	                    <input
+	                      name="loggings"
+	                      type="checkbox"
+	                      value="0"
+	                      class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+	                    />
+	                  </div>
+	                  <div class="text-sm leading-6">
+	                    <label class="font-medium text-gray-900">Loggings</label>
+	                  </div>
+	                </div>
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Sync Days</label
+	                >
+	                <input
+	                  type="number"
+	                  name="syncDays"
+	                  min="0"
+	                  value="1"
+	                  class="p-2 block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+	                />
+	              </div>
+	              <div class="mt-1 space-y-2">
+	                <label class="block text-sm font-medium leading-6 text-gray-900"
+	                  >Projects you're working on</label
+	                >
+	                <select
+	                  name="userProjects"
+	                  class="projectMultiSelect p-2 block w-full rounded-md border-0 text-gray-900 shadow-sm"
+	                  multiple
+	                >
+	                  <% for (const project of projects) { %>
+	                  <option value="<%= project._id %>">
+	                    <%= project.name %>
+	                  </option>
+	                  <% } %>
+	                </select>
+	              </div>
+	            </div>
+	            <button
+	              type="submit"
+	              class="p-2 mt-3 px-10 text-sm rounded-md text-white bg-blue-500 hover:bg-blue-800"
+	            >
+	              Sync Specific Data
+	            </button>
+	          </form>
           <hr />
           <form target="_blank" class="mb-5 mt-5" action="/generate-invoice">
             <div class="text-center text-2xl font-medium mb-2">

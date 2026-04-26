@@ -2,25 +2,87 @@ const axios = require("axios");
 const { getAccessToken } = require("./authenticateRedbooth.js");
 const { Project, User, Task, Logging, saveRecord } = require("./db.js");
 const { dateToUnixTimestamp, delay } = require("./util.js");
-const { addLog, getLogs, clearLogs } = require("./logger.js");
+const { addLog } = require("./logger.js");
 
 const REDBOOTH_API_HOST = "https://redbooth.com/api/3";
 const PROJECTS_ENDPOINT = "/projects";
 const TASKS_ENDPOINT = "/tasks";
 const USERS_ENDPOINT = "/users";
 const COMMENTS_ENDPOINT = "/comments";
+const MIN_REDBOOTH_REQUEST_INTERVAL_MS = parseInt(
+  process.env.REDBOOTH_REQUEST_INTERVAL_MS || "1000"
+);
+const MAX_REDBOOTH_RETRIES = parseInt(process.env.REDBOOTH_MAX_RETRIES || "8");
+const MAX_REDBOOTH_RETRY_DELAY_SECONDS = parseInt(
+  process.env.REDBOOTH_MAX_RETRY_DELAY_SECONDS || "120"
+);
+const FAILED_LOGGING_RETRY_ATTEMPTS = parseInt(
+  process.env.REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS || "5"
+);
 const last_year_start_date = dateToUnixTimestamp(
   new Date(new Date().getFullYear() - 1, 0, 1)
 );
 const current_year_start_date = dateToUnixTimestamp(
   new Date(new Date().getFullYear(), 0, 1)
 );
-const current_end_date = dateToUnixTimestamp(new Date());
+const countRecords = (records) => (Array.isArray(records) ? records.length : 0);
+let lastRedboothRequestAt = 0;
 
-const fetchRedboothData = async ({ endpoint, endpointParams }) => {
+const waitForRedboothRequestSlot = async () => {
+  const elapsed = Date.now() - lastRedboothRequestAt;
+  const waitMs = MIN_REDBOOTH_REQUEST_INTERVAL_MS - elapsed;
+
+  if (waitMs > 0) {
+    await delay(waitMs);
+  }
+
+  lastRedboothRequestAt = Date.now();
+};
+
+const formatErrorMessage = (errorData) => {
+  if (!errorData) {
+    return "Unknown error";
+  }
+
+  return typeof errorData === "string" ? errorData : JSON.stringify(errorData);
+};
+
+const getRetryDelaySeconds = (err, retries) => {
+  const retryAfter = err.response?.headers?.["retry-after"];
+
+  if (retryAfter) {
+    const retryAfterSeconds = parseInt(retryAfter);
+
+    if (!Number.isNaN(retryAfterSeconds)) {
+      return retryAfterSeconds;
+    }
+
+    const retryAfterDate = new Date(retryAfter);
+    const retryAfterDateSeconds = Math.ceil(
+      (retryAfterDate.getTime() - Date.now()) / 1000
+    );
+
+    if (retryAfterDateSeconds > 0) {
+      return retryAfterDateSeconds;
+    }
+  }
+
+  const exponentialDelay = Math.min(
+    5 * Math.pow(2, retries),
+    MAX_REDBOOTH_RETRY_DELAY_SECONDS
+  );
+  const jitter = Math.floor(Math.random() * 3);
+
+  return exponentialDelay + jitter;
+};
+
+const fetchRedboothData = async ({
+  endpoint,
+  endpointParams,
+  maxRetries = MAX_REDBOOTH_RETRIES
+}) => {
   let delayTime = 0;
   let retries = 0;
-  let maxRetries = 5;
   while (retries < maxRetries) {
     try {
       // If delayTime is more than 0 seconds then make sure that you wait for the set delay time
@@ -30,6 +92,8 @@ const fetchRedboothData = async ({ endpoint, endpointParams }) => {
       }
 
       const accessToken = await getAccessToken();
+      addLog(`Fetching Redbooth data: ${endpoint}.`);
+      await waitForRedboothRequestSlot();
       const response = await axios.get(REDBOOTH_API_HOST + endpoint, {
         params: {
           access_token: accessToken.access_token,
@@ -37,19 +101,25 @@ const fetchRedboothData = async ({ endpoint, endpointParams }) => {
         }
       });
 
+      addLog(
+        `Fetched Redbooth data: ${endpoint} (${countRecords(response.data)} records).`
+      );
       return response.data;
     } catch (err) {
       // Extract and log the error message and status code (if available)
-      const errorMessage = err.response?.data || err.message;
+      const errorMessage = formatErrorMessage(err.response?.data) || err.message;
       const statusCode = err.response?.status || "Unknown Status Code";
       addLog(
         `Failed to fetch data! Error: ${errorMessage}, Status Code: ${statusCode}`
       );
 
-      // Increment delay time by 5 seconds each failed time
-      delayTime += 5;
+      delayTime = getRetryDelaySeconds(err, retries);
       retries++;
-      addLog(`Retrying request (retry attempt ${retries}/${maxRetries})...`);
+      if (retries < maxRetries) {
+        addLog(
+          `Retrying request in ${delayTime} seconds (retry attempt ${retries}/${maxRetries})...`
+        );
+      }
     }
   }
 
@@ -58,6 +128,7 @@ const fetchRedboothData = async ({ endpoint, endpointParams }) => {
 };
 
 const syncRedboothProjects = async () => {
+  addLog("Fetching projects from Redbooth.");
   try {
     const projects = await fetchRedboothData({
       endpoint: PROJECTS_ENDPOINT,
@@ -82,20 +153,26 @@ const syncRedboothProjects = async () => {
     }
     addLog("All projects saved successfully!");
   } catch (err) {
-    addLog(logMessage + err);
+    addLog("Error fetching Redbooth projects: " + err.message);
   }
   addLog("All of the projects have been successfully saved!");
 };
 
-const getProjects = async (userProjectIds) => {
+const getProjects = async (userProjectIds = []) => {
+  addLog(
+    `Loading projects from database: ${userProjectIds.length ? userProjectIds.length + " selected projects" : "all projects"}.`
+  );
   const searchCriteria = userProjectIds.length
     ? { _id: { $in: userProjectIds } }
     : {};
   return Project.find(searchCriteria);
 };
-const syncRedboothProjectsTasks = async (userProjectIds) => {
+const syncRedboothProjectsTasks = async (userProjectIds = []) => {
+  addLog("Fetching project tasks from Redbooth.");
   const projects = await getProjects(userProjectIds);
+  addLog(`Loaded ${projects.length} projects for task synchronization.`);
   for (const project of projects) {
+    addLog(`Synchronizing tasks for project ${project.name}.`);
     for (const v of [true, false]) {
       try {
         const tasks = await fetchRedboothData({
@@ -106,6 +183,7 @@ const syncRedboothProjectsTasks = async (userProjectIds) => {
             order: "updated_at-DESC"
           }
         });
+        addLog(`Fetched ${countRecords(tasks)} ${v ? "resolved" : "unresolved"} tasks for ${project.name}.`);
         for (const task of tasks) {
           var recordData = {
             model: Task,
@@ -138,6 +216,7 @@ const syncRedboothProjectsTasks = async (userProjectIds) => {
 };
 
 const syncRedboothUsers = async (log) => {
+  addLog("Fetching users from Redbooth.");
   try {
     const users = await fetchRedboothData({
       endpoint: USERS_ENDPOINT,
@@ -145,6 +224,7 @@ const syncRedboothUsers = async (log) => {
         order: "created_at-DESC"
       }
     });
+    addLog(`Fetched ${countRecords(users)} users from Redbooth.`);
     for (const user of users) {
       await saveRecord({
         model: User,
@@ -172,79 +252,164 @@ const syncRedboothUsers = async (log) => {
   addLog("All of the users have been successfully saved!");
 };
 
-const syncRedboothTasksLoggings = async (syncDays = null, userProjectIds) => {
-  if (syncDays) {
+const getLoggingParams = ({ task, updatedAtTimestamp, endAtTimestamp }) => {
+  return {
+    endpoint: COMMENTS_ENDPOINT,
+    endpointParams: {
+      target_type: "Task",
+      target_id: task.rbTaskId,
+      created_from: updatedAtTimestamp,
+      created_to: endAtTimestamp,
+      order: "created_at-DESC"
+    }
+  };
+};
+
+const saveTaskLoggings = async ({ task, updatedAtTimestamp, endAtTimestamp, maxRetries }) => {
+  const loggingParams = getLoggingParams({
+    task,
+    updatedAtTimestamp,
+    endAtTimestamp
+  });
+  const loggings = await fetchRedboothData({
+    ...loggingParams,
+    maxRetries
+  });
+
+  addLog(
+    `Fetched ${countRecords(loggings)} loggings for task ${task.name}.`
+  );
+
+  if (!loggings || !(Symbol.iterator in Object(loggings))) {
+    return false;
+  }
+
+  let loggingStatus = false;
+  for (const logging of loggings) {
+    if (logging.minutes) {
+      loggingStatus = true;
+
+      // Fetch the user using rbUserId
+      const user = await User.findOne({ rbUserId: logging.user_id });
+      const userName = user ? user.name : "Unknown User";
+
+      await saveRecord({
+        model: Logging,
+        modelData: {
+          rbCommentId: logging.id,
+          rbUserId: logging.user_id,
+          rbTaskId: logging.target_id,
+          minutes: logging.minutes,
+          timeTrackingOn: logging.time_tracking_on,
+          createdAt: logging.created_at
+        },
+        modelSearchData: {
+          rbCommentId: logging.id
+        }
+      });
+      addLog(
+        `${userName} logged ${toHoursMinutes(logging.minutes)} for task "${
+          task.name
+        }" on ${logging.time_tracking_on}.`
+      );
+    }
+  }
+
+  if (loggingStatus) {
+    addLog(`All loggings saved successfully for ${task.name} task !`);
+  }
+
+  return true;
+};
+
+const syncRedboothTasksLoggings = async (
+  syncDays = null,
+  userProjectIds = [],
+  options = {}
+) => {
+  const { startDate = null, endDate = null } = options;
+  addLog(
+    `Fetching task loggings from Redbooth: syncDays=${syncDays || "current year"}, selectedProjects=${userProjectIds.length}, startDate=${startDate ? startDate.toLocaleDateString("en-US") : "default"}, endDate=${endDate ? endDate.toLocaleDateString("en-US") : "today"}.`
+  );
+  if (startDate) {
+    var updatedAtTimestamp = dateToUnixTimestamp(startDate);
+  } else if (syncDays) {
     var d = new Date();
     d.setDate(d.getDate() - syncDays);
     var updatedAtTimestamp = dateToUnixTimestamp(d);
   } else {
     var updatedAtTimestamp = current_year_start_date;
   }
+  const endAtTimestamp = endDate
+    ? dateToUnixTimestamp(endDate)
+    : dateToUnixTimestamp(new Date());
   const projects = await getProjects(userProjectIds);
+  addLog(`Loaded ${projects.length} projects for logging synchronization.`);
   const rbProjectIds = [];
   for (const project of projects) {
     rbProjectIds.push(project.rbProjectId);
   }
   const filters = rbProjectIds.length
     ? {
-        rbProjectId: { $in: rbProjectIds },
-        updatedAt: { $gt: updatedAtTimestamp }
+        rbProjectId: { $in: rbProjectIds }
       }
-    : { updatedAt: { $gt: updatedAtTimestamp } };
+    : {};
+  if (!startDate) {
+    filters.updatedAt = { $gt: updatedAtTimestamp };
+  }
   const tasks = await Task.find(filters);
+  addLog(`Loaded ${tasks.length} tasks for logging synchronization.`);
+  const failedTasks = [];
   for (const task of tasks) {
-    var loggingParams = {
-      endpoint: COMMENTS_ENDPOINT,
-      endpointParams: {
-        target_type: "Task",
-        target_id: task.rbTaskId,
-        created_from: updatedAtTimestamp,
-        created_to: current_end_date,
-        order: "created_at-DESC"
-      }
-    };
-    var loggings = await fetchRedboothData(loggingParams);
-    var loggingStatus = false;
-    if (loggings && Symbol.iterator in Object(loggings)) {
-      for (const logging of loggings) {
-        if (logging.minutes) {
-          loggingStatus = true;
+    addLog(`Fetching loggings for task ${task.name}.`);
+    const taskLoggingSaved = await saveTaskLoggings({
+      task,
+      updatedAtTimestamp,
+      endAtTimestamp,
+      maxRetries: 1
+    });
 
-          // Fetch the user using rbUserId
-          const user = await User.findOne({ rbUserId: logging.user_id });
-          const userName = user ? user.name : "Unknown User";
-
-          await saveRecord({
-            model: Logging,
-            modelData: {
-              rbCommentId: logging.id,
-              rbUserId: logging.user_id,
-              rbTaskId: logging.target_id,
-              minutes: logging.minutes,
-              timeTrackingOn: logging.time_tracking_on,
-              createdAt: logging.created_at
-            },
-            modelSearchData: {
-              rbCommentId: logging.id
-            }
-          });
-          addLog(
-            `${userName} logged ${toHoursMinutes(logging.minutes)} for task "${
-              task.name
-            }" on ${logging.time_tracking_on}.`
-          );
-        }
-      }
-      if (loggingStatus) {
-        addLog(`All loggings saved successfully for ${task.name} task !`);
-      }
-    } else {
+    if (!taskLoggingSaved) {
+      failedTasks.push(task);
       addLog(
-        `Failed to fetch loggings for ${task.name} task after exhausting max 5 retries !`
+        `Skipping ${task.name} for now. It has been added to the failed logging retry queue.`
       );
     }
   }
-  addLog("All of the loggings have been successfully saved!");
+
+  if (failedTasks.length) {
+    addLog(
+      `Retrying ${failedTasks.length} failed logging fetches at the end of processing.`
+    );
+  }
+
+  let unresolvedFailedTasks = 0;
+  for (const task of failedTasks) {
+    addLog(
+      `Retrying failed logging fetch for task ${task.name} with up to ${FAILED_LOGGING_RETRY_ATTEMPTS} attempts.`
+    );
+    const taskLoggingSaved = await saveTaskLoggings({
+      task,
+      updatedAtTimestamp,
+      endAtTimestamp,
+      maxRetries: FAILED_LOGGING_RETRY_ATTEMPTS
+    });
+
+    if (!taskLoggingSaved) {
+      unresolvedFailedTasks++;
+      addLog(
+        `Failed to fetch loggings for ${task.name} task after ${FAILED_LOGGING_RETRY_ATTEMPTS} end-of-processing retry attempts.`
+      );
+    }
+  }
+
+  if (unresolvedFailedTasks) {
+    addLog(
+      `Logging synchronization completed with ${unresolvedFailedTasks} unresolved failed tasks.`
+    );
+  } else {
+    addLog("All of the loggings have been successfully saved!");
+  }
 };
 
 const toHoursMinutes = (m) => `${Math.floor(m / 60)}h ${m % 60}m`;

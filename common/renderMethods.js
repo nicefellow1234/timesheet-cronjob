@@ -1,7 +1,9 @@
 const puppeteer = require("puppeteer");
 const ejs = require("ejs");
 const fs = require("fs");
+const path = require("path");
 const { Project, User, Task, Logging } = require("./db.js");
+const { addLog } = require("./logger.js");
 const {
   toHoursAndMinutes,
   getLastSundayOfMonth,
@@ -11,6 +13,9 @@ const {
 } = require("./util.js");
 
 const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
+  addLog(
+    `Preparing user loggings: month=${month || "all"}, year=${year || "all"}, invoice=${invoice || "no"}, userId=${userId || "all"}.`
+  );
   if (month && year && invoice) {
     var startDate = dateToUnixTimestamp(getLastSundayOfMonth(month - 1, year));
     var endDate = dateToUnixTimestamp(getLastSundayOfMonth(month, year));
@@ -21,8 +26,10 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
   const users = userId
     ? await User.find({ rbUserId: userId })
     : await User.find();
+  addLog(`Found ${users.length} users to process for rendered loggings.`);
   var loggingsData = [];
   for (const user of users) {
+    addLog(`Processing loggings for ${user.name}.`);
     var userData = {
       rbUserId: user.rbUserId,
       name: user.name,
@@ -71,7 +78,9 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
     if (userData.loggings.length) {
       loggingsData.push(userData);
     }
+    addLog(`Processed ${userData.loggings.length} loggings for ${user.name}.`);
   }
+  addLog(`Prepared rendered loggings for ${loggingsData.length} users.`);
   return loggingsData;
 };
 
@@ -84,23 +93,43 @@ const generateInvoiceData = async (
   customItem = null,
   customValue = null,
   overrideProject = null,
-  overrideProjectRate = null
+  overrideProjectRate = null,
+  invoiceProject = null
 ) => {
+  addLog(
+    `Preparing invoice data: invoiceNo=${invoiceNo || "not provided"}, userId=${userId || "all"}, hourlyRate=${hourlyRate || "not provided"}.`
+  );
   const startDate = getLastSundayOfMonth(month - 1, year, 1);
   const endDate = getLastSundayOfMonth(month, year);
   const invoiceDueDate = getLastSundayOfMonth(month, year);
   invoiceDueDate.setDate(invoiceDueDate.getDate() + 30);
   const weeklyRanges = getWeeklyRanges(startDate, endDate);
   const projects = await Project.find().lean();
+  const invoiceProjectIds = invoiceProject
+    ? Array.isArray(invoiceProject)
+      ? invoiceProject.map((projectId) => projectId.toString())
+      : [invoiceProject.toString()]
+    : [];
+  const invoiceProjects = invoiceProjectIds.length
+    ? projects.filter((project) => {
+        return (
+          invoiceProjectIds.includes(project.rbProjectId.toString()) ||
+          invoiceProjectIds.includes(project._id.toString())
+        );
+      })
+    : projects;
   const user = await User.findOne({ rbUserId: userId }, { password: 0 }).lean();
   const loggings = await Logging.find({ rbUserId: userId })
     .sort({ createdAt: "desc" })
     .exec();
+  addLog(
+    `Invoice source data loaded: ${invoiceProjects.length} projects, ${loggings.length} loggings, user=${user ? user.name : "not found"}.`
+  );
   var totalLoggedHours = 0;
   var monthlyTotals = 0;
   var loggingsData = [];
   if (loggings.length) {
-    for (const project of projects) {
+    for (const project of invoiceProjects) {
       var projectLoggingsData = [];
       for (const weeklyRange of weeklyRanges) {
         var weeklyLoggingsData = [];
@@ -145,10 +174,12 @@ const generateInvoiceData = async (
               let projectIndex = overrideProject.indexOf(project.rbProjectId);
               if (projectIndex) {
                 projectRate = parseFloat(overrideProjectRate[projectIndex]);
+                addLog(`Applied override rate ${projectRate} for project ${project.name}.`);
               }
             } else {
               if (project.rbProjectId == overrideProject) {
                 projectRate = parseFloat(overrideProjectRate);
+                addLog(`Applied override rate ${projectRate} for project ${project.name}.`);
               }
             }
           }
@@ -204,6 +235,7 @@ const generateInvoiceData = async (
   };
 
   if (customItem && customValue) {
+    addLog("Applying custom invoice items.");
     var customItems = [];
     if (typeof customItem == "object" && typeof customValue == "object") {
       for (let i = 0; i < customItem.length; i++) {
@@ -226,35 +258,88 @@ const generateInvoiceData = async (
   }
 
   data.monthlyTotals = Math.round(data.monthlyTotals * 100) / 100;
+  addLog(`Invoice totals calculated: ${data.monthlyTotals}.`);
 
   const invoiceTemplate = fs.readFileSync(
     "./views/invoiceTemplate.ejs",
     "utf-8"
   );
   data.renderedInvoiceTemplate = ejs.render(invoiceTemplate, { data });
+  addLog(`Invoice template rendered for invoice ${invoiceNo}.`);
   return data;
 };
 
+const findChromeExecutable = () => {
+  const envPaths = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    process.env.CHROME_PATH,
+    process.env.GOOGLE_CHROME_SHIM
+  ];
+
+  const installPaths = [
+    process.env.PROGRAMFILES &&
+      path.join(process.env.PROGRAMFILES, "Google", "Chrome", "Application", "chrome.exe"),
+    process.env["PROGRAMFILES(X86)"] &&
+      path.join(process.env["PROGRAMFILES(X86)"], "Google", "Chrome", "Application", "chrome.exe"),
+    process.env.LOCALAPPDATA &&
+      path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),
+    process.env.PROGRAMFILES &&
+      path.join(process.env.PROGRAMFILES, "Microsoft", "Edge", "Application", "msedge.exe"),
+    process.env["PROGRAMFILES(X86)"] &&
+      path.join(process.env["PROGRAMFILES(X86)"], "Microsoft", "Edge", "Application", "msedge.exe"),
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  ];
+
+  const executablePath = [...envPaths, ...installPaths].find((chromePath) => {
+    return chromePath && fs.existsSync(chromePath);
+  });
+  addLog(
+    executablePath
+      ? `Chrome executable found: ${executablePath}.`
+      : "No local Chrome executable found. Puppeteer will use its configured browser cache."
+  );
+  return executablePath;
+};
+
 const generatePdfInvoice = async (invoiceData) => {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"] // Add these arguments to bypass sandboxing
-  });
-  const page = await browser.newPage();
-  await page.setContent(invoiceData.renderedInvoiceTemplate, {
-    waitUntil: "domcontentloaded"
-  });
-  // To reflect CSS used for screens instead of print
-  await page.emulateMediaType("screen");
-  //await page.screenshot({path: "canvas.png"})
-  var invoiceFile = `./invoices/${invoiceData.invoiceNo} - ${invoiceData.name} - ${invoiceData.invoiceDate}.pdf`;
-  let height = await page.evaluate(() => document.documentElement.offsetHeight);
-  await page.pdf({
-    path: invoiceFile,
-    height: 30 + height + "px"
-  });
-  await browser.close();
-  return invoiceFile;
+  addLog(`Starting PDF generation for invoice ${invoiceData.invoiceNo}.`);
+  const executablePath = findChromeExecutable();
+  let browser;
+
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      ...(executablePath ? { executablePath } : {}),
+      args: ["--no-sandbox", "--disable-setuid-sandbox"] // Add these arguments to bypass sandboxing
+    });
+    addLog("Puppeteer browser launched.");
+    const page = await browser.newPage();
+    addLog("Puppeteer page created.");
+    await page.setContent(invoiceData.renderedInvoiceTemplate, {
+      waitUntil: "domcontentloaded"
+    });
+    addLog("Invoice HTML loaded into Puppeteer.");
+    // To reflect CSS used for screens instead of print
+    await page.emulateMediaType("screen");
+    //await page.screenshot({path: "canvas.png"})
+    var invoiceFile = `./invoices/${invoiceData.invoiceNo} - ${invoiceData.name} - ${invoiceData.invoiceDate}.pdf`;
+    let height = await page.evaluate(() => document.documentElement.offsetHeight);
+    await page.pdf({
+      path: invoiceFile,
+      height: 30 + height + "px"
+    });
+    addLog(`PDF written to ${invoiceFile}.`);
+    return invoiceFile;
+  } finally {
+    if (browser) {
+      await browser.close();
+      addLog("Puppeteer browser closed.");
+    }
+  }
 };
 
 module.exports = {

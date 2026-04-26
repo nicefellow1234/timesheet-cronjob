@@ -1,12 +1,14 @@
 const axios = require('axios');
 const fs = require('fs');
 const { dateToUnixTimestamp } = require('./util.js');
+const { addLog } = require('./logger.js');
 
 const client_id = process.env.RB_CLIENT_ID;
 const client_secret = process.env.RB_CLIENT_SECRET;
 const redirect_uri = process.env.RB_REDIRECT_URI;
 
 const fetchAccessToken = async (refreshToken = null, code = null) => {
+    addLog(refreshToken ? 'Refreshing Redbooth access token.' : 'Fetching Redbooth access token with authorization code.');
     var accessToken = null;
     var error = null;
     var params = {
@@ -23,37 +25,38 @@ const fetchAccessToken = async (refreshToken = null, code = null) => {
     }
     await axios.post('https://redbooth.com/oauth2/token', params).then((response) => {
         accessToken = response.data;
-        console.log('Access Token returned from response: ', accessToken);
+        addLog('Redbooth access token received.');
         try {
             fs.writeFileSync('./rb_token.json', JSON.stringify(accessToken));
+            addLog('Redbooth token saved to rb_token.json.');
         } catch (err) {
-            console.error(err);
+            addLog('Failed to save Redbooth token: ' + err.message);
         }
     }).catch((err) => {
         if (err.response) {
             error = {};
-            console.log(err.response.status);
             error.status = err.response.status;
-            console.log(err.response.statusText);
             error.statusText = err.response.statusText;
-            console.log(err.message);
             error.message = err.message;
-            console.log(err.response.headers); // 👉️ {... response headers here}
-            console.log(err.response.data); // 👉️ {... response data here}
             error.error = err.response.data.error;
             error.error_description = err.response.data.error_description;
+            addLog(`Redbooth token request failed: ${error.status} ${error.statusText} - ${error.message}.`);
+        } else {
+            addLog('Redbooth token request failed: ' + err.message);
         }
     });
     return accessToken != null ? accessToken : error;
 }
 
 const getAccessToken = async () => {
+    addLog('Loading Redbooth access token from rb_token.json.');
     let accessToken = JSON.parse(fs.readFileSync('./rb_token.json'));
     let currentTimestamp = dateToUnixTimestamp(new Date());
     if ((currentTimestamp - accessToken.created_at) > 7200) {
-        console.log('Access token is expired!');
+        addLog('Redbooth access token expired.');
         return await fetchAccessToken(accessToken.refresh_token);
     } else {
+        addLog('Using existing Redbooth access token.');
         return accessToken;
     }
 }
