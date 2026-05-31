@@ -48,6 +48,11 @@ Once you create your Redbooth API Console app so get your `Client ID` & `Client 
     REDBOOTH_MAX_RETRIES='8'
     REDBOOTH_MAX_RETRY_DELAY_SECONDS='120'
     REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS='5'
+    REDBOOTH_ACTIVITY_INDEX_SYNC_ENABLED='1'
+    REDBOOTH_ACTIVITY_PAGE_SIZE='1000'
+    REDBOOTH_COMMENTS_PAGE_SIZE='1000'
+    REDBOOTH_DIRECT_TIME_LOG_SYNC_ENABLED='1'
+    REDBOOTH_TIME_LOG_ACTIVITY_CREATED_LOOKBACK_DAYS='0'
 
 Once you do that then now it's time to fire up the app and authenticate redbooth to start fetching the data to populate our database.
 
@@ -119,8 +124,19 @@ Redbooth can return `429 Retry later` when too many requests are made, especiall
     REDBOOTH_MAX_RETRIES='8'
     REDBOOTH_MAX_RETRY_DELAY_SECONDS='120'
     REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS='5'
+    REDBOOTH_ACTIVITY_INDEX_SYNC_ENABLED='1'
+    REDBOOTH_ACTIVITY_PAGE_SIZE='1000'
+    REDBOOTH_COMMENTS_PAGE_SIZE='1000'
+    REDBOOTH_DIRECT_TIME_LOG_SYNC_ENABLED='1'
+    REDBOOTH_TIME_LOG_ACTIVITY_CREATED_LOOKBACK_DAYS='0'
 
-During logging sync, each task's comments are fetched once during the main pass. If a task fails, it is added to a failed queue and skipped temporarily. After the main pass finishes, the failed queue is retried at the end up to `REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS` times per task. If any tasks still fail, the terminal logs report the unresolved task count instead of claiming that everything succeeded.
+By default, logging sync uses a hybrid Redbooth strategy. It first reads `/activities` for the selected project/date range to capture time logging entries that Redbooth exposes directly, then scans comments for recently updated project tasks and filters those comments locally by `time_tracking_on`. This is faster than scanning every task every time, but more reliable than using `/activities` alone.
+
+Redbooth does not provide a server-side `time_tracking_on` date-range filter. The app therefore fetches activity/comment rows by created date and filters `time_tracking_on` locally. For closed invoice periods, comment fetches still run through the current date so entries created after period end for a tracked date inside the period are not missed.
+
+If the recently updated task scan saves no loggings, the app falls back to scanning all locally known tasks in the selected project. Failed comment requests are retried at the end up to `REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS` times per task.
+
+Set `REDBOOTH_DIRECT_TIME_LOG_SYNC_ENABLED='0'` to skip the initial `/activities` pass and use task-comment scanning only.
 
 #### Render Data
 
