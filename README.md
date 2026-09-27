@@ -34,6 +34,10 @@ PDF generation can use a locally installed Chrome/Edge browser. This is optional
 
 The repository keeps `.env.example` with placeholders and safe defaults. Put real local credentials and project/user defaults only in `.env`; `.env` is ignored by git. After Redbooth authorization, the first `/sync-data` run populates the empty MySQL tables from Redbooth.
 
+### MySQL data relationships
+
+The schema enforces these one-to-many relationships with foreign keys: each project can have many tasks, each task belongs to one project, each user can have many logging entries, and each task can have many logging entries. A logging entry belongs to one user and one task; its project is determined through that task. Existing tables receive the same constraints automatically at startup. If a logging entry refers to a Redbooth user not returned by the users endpoint, the app creates a placeholder user that a later sync can update.
+
 ### Installation - Step 2 - Create Redbooth API Console App
 
 Next thing we need to do is create Redbooth API Console App so that we can get access to Redbooth API and be able to fetch data from within there.

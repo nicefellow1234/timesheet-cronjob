@@ -4,6 +4,7 @@ const {
   saveRecord,
   getProjects: getDbProjects,
   getUserByRedboothId,
+  getProjectByRedboothId,
   getTaskByRedboothId,
   getTasksForLoggingSync: getDbTasksForLoggingSync,
   getTasksByRedboothIds
@@ -374,8 +375,51 @@ const saveLoggingRecord = async ({ logging, task }) => {
     return false;
   }
 
+  if (logging.user_id === undefined || logging.user_id === null) {
+    addLog(`Skipping logging ${logging.id}: Redbooth did not provide a user ID.`);
+    return false;
+  }
+
   const user = await getUserByRedboothId(logging.user_id);
-  const userName = user ? user.name : "Unknown User";
+  const userName = user
+    ? user.name
+    : `Unknown Redbooth user ${logging.user_id}`;
+  if (!user) {
+    await saveRecord({
+      table: "users",
+      modelData: {
+        rbUserId: logging.user_id,
+        name: userName,
+        username: null,
+        email: null,
+        status: false
+      }
+    });
+  }
+
+  if (logging.target_id === undefined || logging.target_id === null) {
+    addLog(`Skipping logging ${logging.id}: Redbooth did not provide a task ID.`);
+    return false;
+  }
+
+  const savedTask = await getTaskByRedboothId(logging.target_id);
+  if (!savedTask) {
+    const taskMatchesLogging =
+      task && String(task.rbTaskId) === String(logging.target_id);
+    const project = taskMatchesLogging
+      ? await getProjectByRedboothId(task.rbProjectId)
+      : null;
+    if (!taskMatchesLogging || !project) {
+      addLog(
+        `Skipping logging ${logging.id}: its Redbooth task or project is not available locally.`
+      );
+      return false;
+    }
+    await saveRecord({
+      table: "tasks",
+      modelData: task
+    });
+  }
 
   await saveRecord({
     table: "loggings",

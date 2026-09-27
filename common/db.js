@@ -52,7 +52,10 @@ const schemaStatements = [
     name TEXT NULL,
     updatedAt BIGINT NULL,
     UNIQUE KEY uq_tasks_rbTaskId (rbTaskId),
-    KEY idx_tasks_project_updated (rbProjectId, updatedAt)
+    KEY idx_tasks_project_updated (rbProjectId, updatedAt),
+    CONSTRAINT fk_tasks_project_rbProjectId
+      FOREIGN KEY (rbProjectId) REFERENCES projects (rbProjectId)
+      ON DELETE RESTRICT ON UPDATE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   `CREATE TABLE IF NOT EXISTS loggings (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -64,9 +67,113 @@ const schemaStatements = [
     createdAt BIGINT NOT NULL,
     UNIQUE KEY uq_loggings_rbCommentId (rbCommentId),
     KEY idx_loggings_user_created (rbUserId, createdAt),
-    KEY idx_loggings_task (rbTaskId)
+    KEY idx_loggings_task (rbTaskId),
+    CONSTRAINT fk_loggings_user_rbUserId
+      FOREIGN KEY (rbUserId) REFERENCES users (rbUserId)
+      ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_loggings_task_rbTaskId
+      FOREIGN KEY (rbTaskId) REFERENCES tasks (rbTaskId)
+      ON DELETE RESTRICT ON UPDATE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 ];
+
+const foreignKeys = [
+  {
+    table: "tasks",
+    constraint: "fk_tasks_project_rbProjectId",
+    column: "rbProjectId",
+    referencedTable: "projects",
+    referencedColumn: "rbProjectId"
+  },
+  {
+    table: "loggings",
+    constraint: "fk_loggings_user_rbUserId",
+    column: "rbUserId",
+    referencedTable: "users",
+    referencedColumn: "rbUserId"
+  },
+  {
+    table: "loggings",
+    constraint: "fk_loggings_task_rbTaskId",
+    column: "rbTaskId",
+    referencedTable: "tasks",
+    referencedColumn: "rbTaskId"
+  }
+];
+
+const ensureUnknownLoggingUsers = async (connection) => {
+  const [unknownUsers] = await connection.query(
+    `SELECT DISTINCT loggings.rbUserId
+     FROM loggings
+     LEFT JOIN users ON users.rbUserId = loggings.rbUserId
+     WHERE users.rbUserId IS NULL`
+  );
+
+  for (const { rbUserId } of unknownUsers) {
+    await connection.execute(
+      `INSERT INTO users (rbUserId, name, username, email, status)
+       VALUES (?, ?, NULL, NULL, 0)
+       ON DUPLICATE KEY UPDATE rbUserId = VALUES(rbUserId)`,
+      [rbUserId, `Unknown Redbooth user ${rbUserId}`]
+    );
+  }
+};
+
+const ensureForeignKeys = async (connection) => {
+  for (const foreignKey of foreignKeys) {
+    const [existing] = await connection.execute(
+      `SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+       FROM information_schema.KEY_COLUMN_USAGE
+       WHERE CONSTRAINT_SCHEMA = DATABASE()
+         AND TABLE_NAME = ?
+         AND CONSTRAINT_NAME = ?`,
+      [foreignKey.table, foreignKey.constraint]
+    );
+
+    if (existing.length) {
+      const isCorrect = existing.some((row) =>
+        row.COLUMN_NAME === foreignKey.column &&
+        row.REFERENCED_TABLE_NAME === foreignKey.referencedTable &&
+        row.REFERENCED_COLUMN_NAME === foreignKey.referencedColumn
+      );
+      if (!isCorrect) {
+        throw new Error(
+          `Foreign key ${foreignKey.constraint} exists with an unexpected definition.`
+        );
+      }
+      continue;
+    }
+
+    await connection.query(
+      `ALTER TABLE \`${foreignKey.table}\`
+       ADD CONSTRAINT \`${foreignKey.constraint}\`
+       FOREIGN KEY (\`${foreignKey.column}\`)
+       REFERENCES \`${foreignKey.referencedTable}\` (\`${foreignKey.referencedColumn}\`)
+       ON DELETE RESTRICT ON UPDATE CASCADE`
+    );
+  }
+};
+
+const assertNoOrphanedProjectOrTaskReferences = async (connection) => {
+  const [rows] = await connection.query(
+    `SELECT
+       (SELECT COUNT(*)
+        FROM tasks
+        LEFT JOIN projects ON projects.rbProjectId = tasks.rbProjectId
+        WHERE projects.rbProjectId IS NULL) AS tasksWithoutProject,
+       (SELECT COUNT(*)
+        FROM loggings
+        LEFT JOIN tasks ON tasks.rbTaskId = loggings.rbTaskId
+        WHERE tasks.rbTaskId IS NULL) AS loggingsWithoutTask`
+  );
+  const { tasksWithoutProject, loggingsWithoutTask } = rows[0];
+
+  if (tasksWithoutProject || loggingsWithoutTask) {
+    throw new Error(
+      `Cannot add MySQL foreign keys: ${tasksWithoutProject} tasks have no project and ${loggingsWithoutTask} loggings have no task. Sync the missing Redbooth records, then restart the app.`
+    );
+  }
+};
 
 const connectDb = async () => {
   if (pool) {
@@ -99,6 +206,9 @@ const connectDb = async () => {
       for (const statement of schemaStatements) {
         await connection.query(statement);
       }
+      await ensureUnknownLoggingUsers(connection);
+      await assertNoOrphanedProjectOrTaskReferences(connection);
+      await ensureForeignKeys(connection);
     } finally {
       connection.release();
     }
