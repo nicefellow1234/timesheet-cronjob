@@ -1,6 +1,13 @@
 const axios = require("axios");
 const { getAccessToken } = require("./authenticateRedbooth.js");
-const { Project, User, Task, Logging, saveRecord } = require("./db.js");
+const {
+  saveRecord,
+  getProjects: getDbProjects,
+  getUserByRedboothId,
+  getTaskByRedboothId,
+  getTasksForLoggingSync: getDbTasksForLoggingSync,
+  getTasksByRedboothIds
+} = require("./db.js");
 const { dateToUnixTimestamp, delay } = require("./util.js");
 const { addLog } = require("./logger.js");
 
@@ -247,13 +254,10 @@ const syncRedboothProjects = async () => {
     });
     for (const project of projects) {
       await saveRecord({
-        model: Project,
+        table: "projects",
         modelData: {
           rbProjectId: project.id,
           name: project.name
-        },
-        modelSearchData: {
-          rbProjectId: project.id
         }
       });
       addLog(
@@ -271,10 +275,7 @@ const getProjects = async (userProjectIds = []) => {
   addLog(
     `Loading projects from database: ${userProjectIds.length ? userProjectIds.length + " selected projects" : "all projects"}.`
   );
-  const searchCriteria = userProjectIds.length
-    ? { _id: { $in: userProjectIds } }
-    : {};
-  return Project.find(searchCriteria);
+  return getDbProjects(userProjectIds);
 };
 const syncRedboothProjectsTasks = async (userProjectIds = []) => {
   addLog("Fetching project tasks from Redbooth.");
@@ -295,15 +296,12 @@ const syncRedboothProjectsTasks = async (userProjectIds = []) => {
         addLog(`Fetched ${countRecords(tasks)} ${v ? "resolved" : "unresolved"} tasks for ${project.name}.`);
         for (const task of tasks) {
           var recordData = {
-            model: Task,
+            table: "tasks",
             modelData: {
               rbTaskId: task.id,
               rbProjectId: task.project_id,
               name: task.name,
               updatedAt: task.updated_at
-            },
-            modelSearchData: {
-              rbTaskId: task.id
             }
           };
           // Make sure that we only store tasks which have been updated in current year
@@ -336,17 +334,13 @@ const syncRedboothUsers = async (log) => {
     addLog(`Fetched ${countRecords(users)} users from Redbooth.`);
     for (const user of users) {
       await saveRecord({
-        model: User,
+        table: "users",
         modelData: {
           rbUserId: user.id,
           name: `${user.first_name} ${user.last_name}`,
           username: user.username,
           email: user.email,
-          password: Math.random().toString(36).slice(-8),
           status: true
-        },
-        modelSearchData: {
-          rbUserId: user.id
         }
       });
       addLog(
@@ -380,11 +374,11 @@ const saveLoggingRecord = async ({ logging, task }) => {
     return false;
   }
 
-  const user = await User.findOne({ rbUserId: logging.user_id });
+  const user = await getUserByRedboothId(logging.user_id);
   const userName = user ? user.name : "Unknown User";
 
   await saveRecord({
-    model: Logging,
+    table: "loggings",
     modelData: {
       rbCommentId: logging.id,
       rbUserId: logging.user_id,
@@ -392,9 +386,6 @@ const saveLoggingRecord = async ({ logging, task }) => {
       minutes: logging.minutes,
       timeTrackingOn: logging.time_tracking_on,
       createdAt: logging.created_at
-    },
-    modelSearchData: {
-      rbCommentId: logging.id
     }
   });
   addLog(
@@ -473,18 +464,15 @@ const getTaskFromTimeLogActivity = async (activity) => {
     name: activity.title || `Redbooth task ${activity.comment_target_id}`,
     updatedAt: activity.updated_at || activity.created_at || 0
   };
-  const savedTask = await Task.findOne({ rbTaskId: taskData.rbTaskId });
+  const savedTask = await getTaskByRedboothId(taskData.rbTaskId);
 
   if (savedTask) {
     return savedTask;
   }
 
   await saveRecord({
-    model: Task,
-    modelData: taskData,
-    modelSearchData: {
-      rbTaskId: taskData.rbTaskId
-    }
+    table: "tasks",
+    modelData: taskData
   });
 
   return taskData;
@@ -819,17 +807,11 @@ const getDatabaseTasksForLoggingSync = async ({
   updatedAtTimestamp,
   scanAllProjectTasks = false
 }) => {
-  const filters = rbProjectIds.length
-    ? {
-        rbProjectId: { $in: rbProjectIds }
-      }
-    : {};
-
-  if (!scanAllProjectTasks) {
-    filters.updatedAt = { $gt: updatedAtTimestamp };
-  }
-
-  return Task.find(filters);
+  return getDbTasksForLoggingSync({
+    rbProjectIds,
+    updatedAtTimestamp,
+    scanAllProjectTasks
+  });
 };
 
 const hydrateIndexedTasksFromDatabase = async (indexedTasks) => {
@@ -838,7 +820,7 @@ const hydrateIndexedTasksFromDatabase = async (indexedTasks) => {
   }
 
   const taskIds = indexedTasks.map((task) => task.rbTaskId);
-  const savedTasks = await Task.find({ rbTaskId: { $in: taskIds } });
+  const savedTasks = await getTasksByRedboothIds(taskIds);
   const savedTasksById = new Map(
     savedTasks.map((task) => [task.rbTaskId, task])
   );
@@ -853,11 +835,8 @@ const hydrateIndexedTasksFromDatabase = async (indexedTasks) => {
     }
 
     await saveRecord({
-      model: Task,
+      table: "tasks",
       modelData: indexedTask,
-      modelSearchData: {
-        rbTaskId: indexedTask.rbTaskId
-      }
     });
     hydratedTasks.push(indexedTask);
   }

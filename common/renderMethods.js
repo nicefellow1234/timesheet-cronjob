@@ -2,7 +2,14 @@ const puppeteer = require("puppeteer");
 const ejs = require("ejs");
 const fs = require("fs");
 const path = require("path");
-const { Project, User, Task, Logging } = require("./db.js");
+const {
+  getProjects,
+  getUsers,
+  getUserByRedboothId,
+  getTaskByRedboothId,
+  getProjectByRedboothId,
+  getLoggingsByUserId
+} = require("./db.js");
 const { addLog } = require("./logger.js");
 const {
   toHoursAndMinutes,
@@ -24,8 +31,8 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
     var endDate = dateToUnixTimestamp(new Date(year, month, 0));
   }
   const users = userId
-    ? await User.find({ rbUserId: userId })
-    : await User.find();
+    ? await getUsers({ rbUserId: userId })
+    : await getUsers();
   addLog(`Found ${users.length} users to process for rendered loggings.`);
   var loggingsData = [];
   for (const user of users) {
@@ -37,9 +44,7 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
     };
     var usertotalLoggedHours = null;
     var userLoggingsData = [];
-    const userLoggings = await Logging.find({ rbUserId: user.rbUserId })
-      .sort({ createdAt: "desc" })
-      .exec();
+    const userLoggings = await getLoggingsByUserId(user.rbUserId);
     for (const userLogging of userLoggings) {
       var loggingDate = new Date(userLogging.timeTrackingOn);
       var loggingTimestamp = dateToUnixTimestamp(loggingDate);
@@ -50,12 +55,8 @@ const renderUsersLoggings = async ({ month, year, invoice, userId }) => {
       ) {
         continue;
       }
-      const task = await Task.findOne({
-        rbTaskId: userLogging.rbTaskId
-      }).exec();
-      const project = await Project.findOne({
-        rbProjectId: task.rbProjectId
-      }).exec();
+      const task = await getTaskByRedboothId(userLogging.rbTaskId);
+      const project = await getProjectByRedboothId(task.rbProjectId);
       var loggingData = {
         rbCommentId: userLogging.rbCommentId,
         rbProjectId: task.rbProjectId,
@@ -104,7 +105,7 @@ const generateInvoiceData = async (
   const invoiceDueDate = getLastSundayOfMonth(month, year);
   invoiceDueDate.setDate(invoiceDueDate.getDate() + 30);
   const weeklyRanges = getWeeklyRanges(startDate, endDate);
-  const projects = await Project.find().lean();
+  const projects = await getProjects();
   const invoiceProjectIds = invoiceProject
     ? Array.isArray(invoiceProject)
       ? invoiceProject.map((projectId) => projectId.toString())
@@ -114,14 +115,12 @@ const generateInvoiceData = async (
     ? projects.filter((project) => {
         return (
           invoiceProjectIds.includes(project.rbProjectId.toString()) ||
-          invoiceProjectIds.includes(project._id.toString())
+          invoiceProjectIds.includes(project.id.toString())
         );
       })
     : projects;
-  const user = await User.findOne({ rbUserId: userId }, { password: 0 }).lean();
-  const loggings = await Logging.find({ rbUserId: userId })
-    .sort({ createdAt: "desc" })
-    .exec();
+  const user = await getUserByRedboothId(userId);
+  const loggings = await getLoggingsByUserId(userId);
   addLog(
     `Invoice source data loaded: ${invoiceProjects.length} projects, ${loggings.length} loggings, user=${user ? user.name : "not found"}.`
   );
@@ -142,9 +141,7 @@ const generateInvoiceData = async (
             loggingDate > weeklyRange.rangeStart &&
             loggingDate < weeklyRange.rangeEnd
           ) {
-            const task = await Task.findOne({
-              rbTaskId: logging.rbTaskId
-            }).exec();
+            const task = await getTaskByRedboothId(logging.rbTaskId);
             if (task.rbProjectId == project.rbProjectId) {
               weeklyLoggingsData.push({
                 rbCommentId: logging.rbCommentId,

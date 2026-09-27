@@ -1,17 +1,26 @@
 ﻿# Timesheet Cronjob
-A cronjob app written to fetch loggings data from Redbooth and store that into your own MongoDB database and then use that data to generate invoices. The script uses lots of node packages to make that happen. Initially now the app has been created with a web server functionality where you can perform different tasks by visiting certain routes and pass them certain parameters through query string to make them happen but the upcoming functionality will be to turn this into a cronjob based script where the data will be synced on a scheduled basis using the cronjob functionality of the script.
+A cronjob app that fetches logging data from Redbooth, stores it in MySQL, and uses it to generate invoices. The app currently exposes a web server where you can sync data and generate invoices through its routes and dashboard.
 
 ### Installation - Step 1
 
-Run the following commands to install the script.
+Install the app and create a MySQL database for it:
 
     git clone https://github.com/nicefellow1234/timesheet-cronjob.git
     cd timesheet-cronjob
-    npm i
+    npm install
 
-Copy `.env.example` to `.env` and configure `MongoDB_URI` in there:
+Create the database once in MySQL (change the database name if you prefer):
 
-    MONGODB_URI='mongodb://127.0.0.1:27017/dbname'
+    CREATE DATABASE timesheet_cronjob CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+Copy `.env.example` to `.env` and set the MySQL connection values. The database must already exist; the app creates the `projects`, `users`, `tasks`, and `loggings` tables automatically when it starts:
+
+    MYSQL_HOST='127.0.0.1'
+    MYSQL_PORT='3306'
+    MYSQL_USER='root'
+    MYSQL_PASSWORD='YOUR_MYSQL_PASSWORD'
+    MYSQL_DATABASE='timesheet_cronjob'
+    MYSQL_CONNECTION_LIMIT='10'
 
 Set your Company name, address and currency symbol for invoice template:
 
@@ -23,7 +32,7 @@ PDF generation can use a locally installed Chrome/Edge browser. This is optional
 
     PUPPETEER_EXECUTABLE_PATH='OPTIONAL_CHROME_EXECUTABLE_PATH'
 
-The repository keeps `.env.example` with placeholders and safe defaults. Put real local credentials and project/user defaults only in `.env`; `.env` is ignored by git.
+The repository keeps `.env.example` with placeholders and safe defaults. Put real local credentials and project/user defaults only in `.env`; `.env` is ignored by git. After Redbooth authorization, the first `/sync-data` run populates the empty MySQL tables from Redbooth.
 
 ### Installation - Step 2 - Create Redbooth API Console App
 

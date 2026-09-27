@@ -17,7 +17,16 @@ const {
   generatePdfInvoice
 } = require("./common/renderMethods.js");
 const { addLog, getLogs, clearLogs } = require("./common/logger.js");
-const { User, Logging, Project } = require("./common/db.js");
+const {
+  connectDb,
+  closeDb,
+  getProjectById,
+  getProjectByName,
+  getProjects,
+  getUserByName,
+  getUserByRedboothId,
+  getUsersWithLoggings
+} = require("./common/db.js");
 
 const DEFAULT_AUTO_INVOICE_SETTINGS = {
   enabled: process.env.AUTO_INVOICE_ENABLED === "1",
@@ -30,24 +39,18 @@ const DEFAULT_AUTO_INVOICE_SETTINGS = {
   syncTasks: process.env.AUTO_INVOICE_SYNC_TASKS !== "0"
 };
 
-const escapeRegex = (value) => {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-};
-
 const normalizeName = (value) => {
   return value.toLowerCase().replace(/[^a-z0-9]/g, "");
 };
 
 const findProjectByName = async (projectName) => {
-  const exactProject = await Project.findOne({
-    name: new RegExp(`^${escapeRegex(projectName)}$`, "i")
-  }).lean();
+  const exactProject = await getProjectByName(projectName);
 
   if (exactProject) {
     return exactProject;
   }
 
-  const projects = await Project.find().lean();
+  const projects = await getProjects();
   const normalizedProjectName = normalizeName(projectName);
   return projects.find((project) => {
     return normalizeName(project.name) === normalizedProjectName;
@@ -128,11 +131,8 @@ app.use((req, res, next) => {
 
 app.get("/", async (req, res) => {
   addLog("Loading dashboard data.");
-  const userIdsWithLoggings = await Logging.find().distinct("rbUserId");
-  const users = await User.find({
-    rbUserId: { $in: userIdsWithLoggings }
-  }).lean();
-  const projects = await Project.find().lean();
+  const users = await getUsersWithLoggings();
+  const projects = await getProjects();
   addLog(`Dashboard data loaded: ${users.length} users, ${projects.length} projects.`);
   res.render("index", {
     users,
@@ -250,7 +250,7 @@ app.get("/auto-sync-invoice", async (req, res) => {
     );
 
     let project = settings.projectId
-      ? await Project.findById(settings.projectId).lean()
+      ? await getProjectById(settings.projectId)
       : await findProjectByName(settings.projectName);
 
     if (!project) {
@@ -259,7 +259,7 @@ app.get("/auto-sync-invoice", async (req, res) => {
       );
       await syncRedboothProjects();
       project = settings.projectId
-        ? await Project.findById(settings.projectId).lean()
+        ? await getProjectById(settings.projectId)
         : await findProjectByName(settings.projectName);
     }
 
@@ -271,10 +271,8 @@ app.get("/auto-sync-invoice", async (req, res) => {
     }
 
     let user = settings.userId
-      ? await User.findOne({ rbUserId: settings.userId }).lean()
-      : await User.findOne({
-          name: new RegExp(`^${escapeRegex(settings.userName)}$`, "i")
-        }).lean();
+      ? await getUserByRedboothId(settings.userId)
+      : await getUserByName(settings.userName);
 
     if (!user) {
       addLog(
@@ -282,10 +280,8 @@ app.get("/auto-sync-invoice", async (req, res) => {
       );
       await syncRedboothUsers();
       user = settings.userId
-        ? await User.findOne({ rbUserId: settings.userId }).lean()
-        : await User.findOne({
-            name: new RegExp(`^${escapeRegex(settings.userName)}$`, "i")
-          }).lean();
+        ? await getUserByRedboothId(settings.userId)
+        : await getUserByName(settings.userName);
     }
 
     if (!user) {
@@ -295,13 +291,13 @@ app.get("/auto-sync-invoice", async (req, res) => {
 
     if (settings.syncTasks) {
       addLog(`Auto sync invoice syncing tasks for project ${project.name}.`);
-      await syncRedboothProjectsTasks([project._id]);
+      await syncRedboothProjectsTasks([project.id]);
     }
 
     addLog(
       `Auto sync invoice syncing loggings from ${startDate.toLocaleDateString("en-US")} to ${endDate.toLocaleDateString("en-US")} for project ${project.name}.`
     );
-    await syncRedboothTasksLoggings(null, [project._id], {
+    await syncRedboothTasksLoggings(null, [project.id], {
       startDate,
       endDate
     });
@@ -371,9 +367,30 @@ app.get("/generate-invoice", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  addLog(`App listening on port ${port}`);
-});
+const startServer = async () => {
+  try {
+    await connectDb();
+    const server = app.listen(port, () => {
+      addLog(`App listening on port ${port}`);
+    });
+
+    const shutdown = () => {
+      addLog("Shutting down application.");
+      server.close(async () => {
+        await closeDb();
+        process.exit(0);
+      });
+    };
+
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+  } catch (error) {
+    addLog("Application startup failed: " + error.message);
+    process.exitCode = 1;
+  }
+};
+
+startServer();
 
 // syncRedboothProjects();
 // syncRedboothUsers();

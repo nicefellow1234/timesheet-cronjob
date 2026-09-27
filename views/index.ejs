@@ -310,7 +310,7 @@
 	                  <% } %>
 	                  <% for (const project of projects) { %>
 	                  <option
-	                    value="<%= project._id %>"
+	                    value="<%= project.id %>"
 	                    <%= project.name == autoInvoiceSettings.projectName ? "selected" : "" %>
 	                  >
 	                    <%= project.name %>
@@ -555,7 +555,7 @@
 	                  multiple
 	                >
 	                  <% for (const project of projects) { %>
-	                  <option value="<%= project._id %>">
+	                  <option value="<%= project.id %>">
 	                    <%= project.name %>
 	                  </option>
 	                  <% } %>
