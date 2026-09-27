@@ -1,239 +1,244 @@
-﻿# Timesheet Cronjob
-A cronjob app that fetches logging data from Redbooth, stores it in MySQL, and uses it to generate invoices. The app currently exposes a web server where you can sync data and generate invoices through its routes and dashboard.
+# Timesheet Cronjob
 
-### Installation - Step 1
+This Node.js app syncs projects, users, tasks, and time logs from Redbooth into MySQL. Use its web dashboard to run syncs, inspect logged time, and create invoice previews or PDFs. It listens on port `3000` and does not schedule syncs by itself; use the sync URL from an external scheduler if you want recurring runs.
 
-Install the app and create a MySQL database for it:
+## Requirements
 
-    git clone https://github.com/nicefellow1234/timesheet-cronjob.git
-    cd timesheet-cronjob
-    npm install
+- Node.js and npm
+- A MySQL-compatible server and a database for this app
+- A Redbooth API application with a client ID and client secret
+- Chrome or Edge for PDF generation, unless Puppeteer has already downloaded its browser
 
-Create the database once in MySQL (change the database name if you prefer):
+## Install and configure
 
-    CREATE DATABASE timesheet_cronjob CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+Clone the repository and install dependencies:
 
-Copy `.env.example` to `.env` and set the MySQL connection values. The database must already exist; the app creates the `projects`, `users`, `tasks`, and `loggings` tables automatically when it starts:
+```sh
+git clone https://github.com/nicefellow1234/timesheet-cronjob.git
+cd timesheet-cronjob
+npm install
+```
 
-    MYSQL_HOST='127.0.0.1'
-    MYSQL_PORT='3306'
-    MYSQL_USER='root'
-    MYSQL_PASSWORD='YOUR_MYSQL_PASSWORD'
-    MYSQL_DATABASE='timesheet_cronjob'
-    MYSQL_CONNECTION_LIMIT='10'
+Create the database before starting the app:
 
-Set your Company name, address and currency symbol for invoice template:
+```sql
+CREATE DATABASE timesheet_cronjob
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+```
 
-    CURRENCY='CURRENCY_SYMBOL_HERE'
-    INVOICE_COMPANY_NAME='COMPANY_NAME'
-    INVOICE_COMPANY_ADDRESS='COMPANY_ADDRESS'
+Copy `.env.example` to `.env` and set the MySQL connection details. `MYSQL_DATABASE` must already exist. For the `ce_mysqldb_container` used in this workspace, connect to host port `28301`; use the port mapped by your own MySQL server elsewhere (commonly `3306`).
 
-PDF generation can use a locally installed Chrome/Edge browser. This is optional if Puppeteer has already installed its managed browser:
+```dotenv
+MYSQL_HOST='127.0.0.1'
+MYSQL_PORT='28301'
+MYSQL_USER='root'
+MYSQL_PASSWORD='YOUR_MYSQL_PASSWORD'
+MYSQL_DATABASE='timesheet_cronjob'
+MYSQL_CONNECTION_LIMIT='10'
+```
 
-    PUPPETEER_EXECUTABLE_PATH='OPTIONAL_CHROME_EXECUTABLE_PATH'
+The MySQL account needs permission to select, insert, update, create and alter tables, create indexes, and add foreign keys. The app creates its tables and applies relationship constraints at startup. Keep credentials and Redbooth secrets in `.env`; `.env` is ignored by Git.
 
-The repository keeps `.env.example` with placeholders and safe defaults. Put real local credentials and project/user defaults only in `.env`; `.env` is ignored by git. After Redbooth authorization, the first `/sync-data` run populates the empty MySQL tables from Redbooth.
+### MySQL tables and relationships
 
-### MySQL data relationships
+The app creates four InnoDB tables. Each has an auto-increment `id` and a unique Redbooth ID:
 
-The schema enforces these one-to-many relationships with foreign keys: each project can have many tasks, each task belongs to one project, each user can have many logging entries, and each task can have many logging entries. A logging entry belongs to one user and one task; its project is determined through that task. Existing tables receive the same constraints automatically at startup. If a logging entry refers to a Redbooth user not returned by the users endpoint, the app creates a placeholder user that a later sync can update.
+| Table | Main data |
+| --- | --- |
+| `projects` | Redbooth project ID and name |
+| `users` | Redbooth user ID, name, username, email, and active status |
+| `tasks` | Redbooth task ID, project ID, task name, and last update time |
+| `loggings` | Redbooth comment ID, user ID, task ID, minutes, tracked date, and creation time |
 
-### Installation - Step 2 - Create Redbooth API Console App
+Foreign keys enforce the data relationships:
 
-Next thing we need to do is create Redbooth API Console App so that we can get access to Redbooth API and be able to fetch data from within there.
+- One project has many tasks; `tasks.rbProjectId` references `projects.rbProjectId`.
+- One user has many logging entries; `loggings.rbUserId` references `users.rbUserId`.
+- One task has many logging entries; `loggings.rbTaskId` references `tasks.rbTaskId`.
+- Each logging entry belongs to one user and one task. Its project is available through that task.
 
-Headover to Redbooth API Console at: https://redbooth.com/oauth2/applications/
+Parent records cannot be deleted while child rows reference them, and updates to referenced Redbooth IDs cascade. Startup adds these constraints to existing tables too. If a log refers to a Redbooth user missing from the users endpoint, the app creates a placeholder user so the log remains linked; a later user sync updates that record. Startup stops with an error if tasks or logs have missing project/task parents.
 
-If you do not have an existing app registered in there then headover to the following to create one: https://redbooth.com/oauth2/applications/new
+No MongoDB export is needed. The first sync after Redbooth authorization fills the MySQL tables from Redbooth using the app's default current-year sync window.
 
-![Register New Redbooth API App](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/c50286eb-3b1b-4fff-ac41-19340b7587f8)
+### Configure Redbooth authorization
 
-If you already have an existing app registered in there then modify the `Return URI` to match up with our own one in `.env` i.e. **RB_REDIRECT_URI**. Keep in mind that this `Return Uri` is only for local installation, if you have deployed the script in a live server then you will need to match up with your deployed app URL.
+Create an app in the [Redbooth API Console](https://redbooth.com/oauth2/applications/). Set its return URI to:
 
-![Created Redbooth API App](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/f3b3283f-5ef1-40d2-a250-e14e787a7202)
+```text
+http://localhost:3000/authorize
+```
 
-Once you create your Redbooth API Console app so get your `Client ID` & `Client Secret` from in there and update them in your `.env` file according next to `RB_CLIENT_ID` & `RB_CLIENT_SECRET`.
+Add the credentials and callback URI to `.env`:
 
-    RB_CLIENT_ID='RB_CLIENT_ID'
-    RB_CLIENT_SECRET='RB_CLIENT_SECRET'
-    RB_REDIRECT_URI='http://localhost:3000/authorize'
-    REDBOOTH_REQUEST_INTERVAL_MS='1000'
-    REDBOOTH_MAX_RETRIES='8'
-    REDBOOTH_MAX_RETRY_DELAY_SECONDS='120'
-    REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS='5'
-    REDBOOTH_ACTIVITY_INDEX_SYNC_ENABLED='1'
-    REDBOOTH_ACTIVITY_PAGE_SIZE='1000'
-    REDBOOTH_COMMENTS_PAGE_SIZE='1000'
-    REDBOOTH_DIRECT_TIME_LOG_SYNC_ENABLED='1'
-    REDBOOTH_TIME_LOG_ACTIVITY_CREATED_LOOKBACK_DAYS='0'
+```dotenv
+RB_CLIENT_ID='YOUR_CLIENT_ID'
+RB_CLIENT_SECRET='YOUR_CLIENT_SECRET'
+RB_REDIRECT_URI='http://localhost:3000/authorize'
+```
 
-Once you do that then now it's time to fire up the app and authenticate redbooth to start fetching the data to populate our database.
+For a deployed app, set `RB_REDIRECT_URI` and the Redbooth app's return URI to the deployed `/authorize` URL.
 
-Execute the following command to start the app:
+## Start the app and authorize Redbooth
 
-    npm start
+Start the web server:
 
-### Installation - Step 3 - Authenticate Redbooth (Get Access Token from Redbooth)
+```sh
+npm start
+```
 
-Now Headover to Redbooth API Console at: https://redbooth.com/oauth2/applications/
+For development with automatic restarts:
 
-Open your Redbooth API Console App by clicking on `Show` button next to the app. Next click on `Authorize` button to authenticate the app and get access token.
+```sh
+npm run dev
+```
 
-![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/160b8800-dfc6-4732-8959-551bcef82f1a)
+Open [http://localhost:3000](http://localhost:3000). In the Redbooth API Console, authorize the app. Redbooth redirects to `/authorize`; the app exchanges the authorization code and stores its access token in the ignored local file `rb_token.json`. Expired access tokens are refreshed automatically.
 
+After authorization, use **Sync All Redbooth Data** on the dashboard or visit `/sync-data` to populate MySQL. The initial sync may take a while because Redbooth rate limits API requests. The dashboard's **Sync Logs** link opens the live log stream. Major actions are also printed to the app terminal.
 
-Once you click on `Authorize` button you will be forwarded to the `Return URI` for further processing.
+## App features and how to use them
 
-![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/d10ed045-10f1-4521-b036-feb08e00b1a9)
+### 1. Sync Redbooth data
 
-We have completed the installation now we can move ahead to start populating the database by fetching data from redbooth.
+The dashboard's **Sync All Redbooth Data** action runs:
 
-## Running the application
+```text
+GET /sync-data
+```
 
-To start the application, you can use one of the following commands:
+By default it syncs projects, users, tasks, and logging entries. The first full sync starts from the current year for task and time-log data. Set a record-type parameter to `0` to skip that sync; omit the parameter to run it:
 
-- `npm start`: Starts the application in production mode.
-- `npm run dev`: Starts the application in development mode with automatic restarts on file changes.
+```text
+GET /sync-data?projects=0&users=0
+GET /sync-data?projects=0&users=0&tasks=0&loggings=0
+```
 
-All major actions write timestamped logs to the terminal through `common/logger.js`. The dashboard also exposes a `/sync-logs` stream for viewing sync progress in the browser.
+Use `syncDays` to limit the time-log lookback and the recent tasks considered for logging sync. Task metadata sync still fetches the selected projects' task lists. The dashboard's specific-sync form also lets you choose projects:
 
-For ease of use, we have added an index page which is available at the app root URL i.e. at http://localhost:3000/ where you can perform all of the below operations from the UI.
+```text
+GET /sync-data?projects=0&users=0&syncDays=2
+GET /sync-data?projects=0&users=0&userProjects=MYSQL_PROJECT_ROW_ID&syncDays=2
+```
 
-![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/b66e21d0-40c8-4123-8dee-dd1622bc8f05)
+`userProjects` accepts one or more internal MySQL project row IDs from the dashboard. If omitted, sync runs for all projects. For a daily scheduled sync, a scheduler can request `/sync-data?projects=0&users=0&syncDays=2` while the app is running.
 
+The sync uses Redbooth's activities endpoint to find time logs, then scans task comments to catch entries the activity feed may omit. Redbooth does not filter by `time_tracking_on` server-side, so the app filters tracked dates locally. If the recently updated task scan finds no logs, it falls back to the known tasks in the selected projects. Failed comment requests are retried.
 
+### 2. View logged-time data
 
-Now that we have installed the script, next thing is to populate our database and fetch data from Redbooth. To make that happen we have created a route for that which will sync our data with Redbooth. We are fetching 4 types of data from Redbooth i.e. projects, tasks, users & loggings.
+Use **Render Loggings Data** on the dashboard or open:
 
-#### Sync Data Route: 
+```text
+GET /render-data
+GET /render-data?json=1
+```
 
-    http://localhost:3000/sync-data
+The default is an HTML report; `json=1` returns JSON. Optional parameters:
 
-#### Specific Data Syncing + Specific Interval Logging Data Syncing:
+- `userId`: Redbooth user ID to show one user
+- `month` and `year`: limit the report to that month
+- `invoice=1`: use the invoice period, from the previous month's last Sunday through the selected month's last Sunday
 
-If you want to sync everything up from the start of the current year then visit the sync data route as given above as http://localhost/sync-data. It's crucial that you sync the whole data first time.
+Examples:
 
-But if you don't want to sync the whole data every time then we have provided you different query string parameters which you can pass to the route to avoid syncing that data and you can chainup multiple string parameters as well to avoid syncing multiple types of data.
+```text
+GET /render-data?userId=123456
+GET /render-data?month=6&year=2026
+GET /render-data?month=6&year=2026&invoice=1
+```
 
-To avoid syncing `projects` & `users` (Possible other parameters are `tasks` & `loggings`):
+### 3. Generate an invoice
 
-    http://localhost:3000/sync-data?projects=0&users=0
+Use **Generate Monthly Invoice** on the dashboard or call `/generate-invoice`. `userId`, `month`, and `year` identify the invoice period and user. The default response is an HTML preview; set `generatePdf=1` to download a PDF.
 
-We have also provided you the functionality to only sync loggings for a specific interval. You can use `syncDays` query string parameter to let the script only sync the specific number of days loggings.
+```text
+GET /generate-invoice?userId=123456&year=2026&month=6&hourlyRate=15&invoiceNo=120
+GET /generate-invoice?userId=123456&year=2026&month=6&hourlyRate=15&invoiceNo=120&generatePdf=1
+```
 
-To sync `loggings` & `tasks` for the past 2 days (We highly recommend that you use this route to sync data as quickly as possible on daily basis):
+Optional invoice parameters:
 
-    http://localhost:3000/sync-data?projects=0&users=0&syncDays=2
+- `customItem` and `customValue`: add one or more custom invoice lines; repeat each parameter for multiple lines
+- `overrideProject` and `overrideProjectRate`: override rates for selected Redbooth project IDs
+- `invoiceProject`: restrict invoice entries to one or more project IDs (Redbooth IDs or local MySQL project row IDs)
 
-Once you visit the sync data route so you will start to see progress logs in the terminal where the app is running.
+Example with a custom line:
 
-![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/f06074ec-5635-48a5-93b9-3d0035bed767)
+```text
+GET /generate-invoice?userId=123456&year=2026&month=6&hourlyRate=15&invoiceNo=120&customItem=Expenses&customValue=25
+```
 
-#### Redbooth Rate Limits and Failed Logging Retries
+The PDF preview includes a **Generate PDF Invoice** link. PDF creation uses Puppeteer's managed browser when available; otherwise install Chrome for Puppeteer or set `PUPPETEER_EXECUTABLE_PATH` to a local Chrome/Edge executable.
 
-Redbooth can return `429 Retry later` when too many requests are made, especially while syncing `/comments` for many tasks. The sync code spaces requests out and retries failed requests with backoff. These settings can be tuned in `.env`:
+### 4. Automatically sync and review an invoice
 
-    REDBOOTH_REQUEST_INTERVAL_MS='1000'
-    REDBOOTH_MAX_RETRIES='8'
-    REDBOOTH_MAX_RETRY_DELAY_SECONDS='120'
-    REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS='5'
-    REDBOOTH_ACTIVITY_INDEX_SYNC_ENABLED='1'
-    REDBOOTH_ACTIVITY_PAGE_SIZE='1000'
-    REDBOOTH_COMMENTS_PAGE_SIZE='1000'
-    REDBOOTH_DIRECT_TIME_LOG_SYNC_ENABLED='1'
-    REDBOOTH_TIME_LOG_ACTIVITY_CREATED_LOOKBACK_DAYS='0'
+Set `AUTO_INVOICE_ENABLED='1'` to show the **Auto Sync + Review Invoice** dashboard form and enable `/auto-sync-invoice`. Select a project and user, invoice month/year, and hourly rate. The route syncs the selected project's tasks when enabled, fetches its logs for the invoice period, and opens an HTML invoice preview. Review it before using the PDF link.
 
-By default, logging sync uses a hybrid Redbooth strategy. It first reads `/activities` for the selected project/date range to capture time logging entries that Redbooth exposes directly, then scans comments for recently updated project tasks and filters those comments locally by `time_tracking_on`. This is faster than scanning every task every time, but more reliable than using `/activities` alone.
+The default project and user names are `CX:CE` and `Umair Shah`; the default hourly rate is `15`. Project lookup ignores case and tolerates punctuation/spacing differences.
 
-Redbooth does not provide a server-side `time_tracking_on` date-range filter. The app therefore fetches activity/comment rows by created date and filters `time_tracking_on` locally. For closed invoice periods, comment fetches still run through the current date so entries created after period end for a tracked date inside the period are not missed.
+Configure defaults in `.env`:
 
-If the recently updated task scan saves no loggings, the app falls back to scanning all locally known tasks in the selected project. Failed comment requests are retried at the end up to `REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS` times per task.
+```dotenv
+AUTO_INVOICE_ENABLED='0'
+AUTO_INVOICE_PROJECT_NAME='PROJECT_NAME'
+AUTO_INVOICE_USER_NAME='USER_NAME'
+AUTO_INVOICE_HOURLY_RATE='15'
+AUTO_INVOICE_BASE_INVOICE_NO='154'
+AUTO_INVOICE_BASE_MONTH='4'
+AUTO_INVOICE_BASE_YEAR='2026'
+AUTO_INVOICE_SYNC_TASKS='1'
+```
 
-Set `REDBOOTH_DIRECT_TIME_LOG_SYNC_ENABLED='0'` to skip the initial `/activities` pass and use task-comment scanning only.
+The base invoice number and month/year determine invoice numbers for later months. For example, base invoice `154` for April 2026 makes May 2026 invoice `155`. The form values can be changed for an individual run.
 
-#### Render Data
+### 5. Watch sync progress
 
-Once you complete syncing the data, the next step is to render the data. We have two types of rendering that happens through this route. We have provided query strings for that.
+Open **Sync Logs** on the dashboard or visit:
 
-To render JSON data visit the followwing route (This will render all of the available data):
+```text
+GET /sync-logs
+```
 
-    http://localhost:3000/render-data?json=1
+This streams recent timestamped activity while a sync is running. The same logs appear in the terminal.
 
-Since JSON data is not meaningful for normal viewing so we have also provided a view query string parameter to render data in a view where you will be able to see all of the data in a well organised manner.
+## Environment settings
 
-To render data view visit the following route (This will render all of the available data):
+`.env.example` lists the supported settings. Common Redbooth sync controls are:
 
-    http://localhost:3000/render-data
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `REDBOOTH_REQUEST_INTERVAL_MS` | `1000` | Minimum delay between API requests |
+| `REDBOOTH_MAX_RETRIES` | `8` | Retry attempts for API requests |
+| `REDBOOTH_MAX_RETRY_DELAY_SECONDS` | `120` | Maximum retry backoff |
+| `REDBOOTH_FAILED_LOGGING_RETRY_ATTEMPTS` | `5` | Final retries for failed comment fetches |
+| `REDBOOTH_ACTIVITY_INDEX_SYNC_ENABLED` | `1` | Use activities to find candidate time logs |
+| `REDBOOTH_ACTIVITY_PAGE_SIZE` | `1000` | Activities page size |
+| `REDBOOTH_COMMENTS_PAGE_SIZE` | `1000` | Comments page size |
+| `REDBOOTH_DIRECT_TIME_LOG_SYNC_ENABLED` | `1` | Run the direct activity-based time-log pass |
+| `REDBOOTH_TIME_LOG_ACTIVITY_CREATED_LOOKBACK_DAYS` | `0` | Extra created-date lookback for activity sync |
+| `REDBOOTH_FALLBACK_TASK_COMMENT_SYNC` | `0` | Fall back to the slower full task scan if activity indexing fails |
 
-#### Render Monthly Invoice Data
+Invoice display and company details use `CURRENCY`, `INVOICE_COMPANY_NAME`, and `INVOICE_COMPANY_ADDRESS`. PDF browser location can be set with `PUPPETEER_EXECUTABLE_PATH`.
 
-To render monthly invoice data visit the following route:
+## Routes at a glance
 
-    http://localhost:3000/render-data?month=6&year=2023
+| Route | Use |
+| --- | --- |
+| `/` | Dashboard for sync, reports, and invoices |
+| `/authorize` | Redbooth OAuth callback |
+| `/sync-data` | Sync Redbooth projects, users, tasks, and time logs |
+| `/sync-logs` | Live sync activity stream |
+| `/render-data` | HTML or JSON logging report |
+| `/generate-invoice` | Invoice preview or PDF |
+| `/auto-sync-invoice` | Sync one project and review its invoice; requires `AUTO_INVOICE_ENABLED=1` |
 
-If you want to render data for invoice starting from last month sunday to current invoice month last sunday then pass in an extra parameter as `invoice=1`:
+## Troubleshooting
 
-    http://localhost:3000/render-data?month=6&year=2023&invoice=1
-
-#### Generate Monthly Invoice
-
-To generate invoice click on the `Generate Invoice` button and you will see an HTML invoice generated.
-
-![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/61929dc4-7d33-478a-bcde-19eda2a48add)
-
-Invoice can be generated with the following route (`userId` query string parameter is mandatory here):
-
-    http://localhost:3000/generate-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&invoiceNo=120
-
-![image](https://github.com/nicefellow1234/timesheet-cronjob/assets/10282608/96c6d5a2-5ae6-481f-a0db-f264f37d0c2a)
-
-If you want to generate a PDF out of the invoice then either click on the `Generate PDF Invoice` button or rather pass in an extra query string parameter as `generatePdf` to the invoice URL. You can also update the `hourlyRate` & `invoiceNo` value in the query string as well to update the hourly rate & invoice no in the invoice.
-
-    http://localhost:3000/generate-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&invoiceNo=120&generatePdf=1
-
-PDF generation uses Puppeteer. The app first checks `PUPPETEER_EXECUTABLE_PATH`, `CHROME_PATH`, `GOOGLE_CHROME_SHIM`, and common Chrome/Edge install paths before falling back to Puppeteer's browser cache. If Chrome is not installed locally and Puppeteer has not downloaded its managed browser, run:
-
-    npx puppeteer browsers install chrome
-
-You can also set a browser path explicitly:
-
-    PUPPETEER_EXECUTABLE_PATH='C:\Program Files\Google\Chrome\Application\chrome.exe'
-
-#### Auto Sync + Review Invoice
-
-The dashboard can include an `Auto Sync + Review Invoice` form. Enable it with `AUTO_INVOICE_ENABLED='1'`. When disabled, the form is hidden and `/auto-sync-invoice` returns a 404.
-
-The form lets you select a project and user from the synced database records, set the hourly rate, and choose the invoice month/year. The project field uses a searchable Select2 multi-select in the regular sync form, while the auto invoice form uses normal project/user selects so the defaults can be changed from the UI.
-
-Auto invoice sync fetches Redbooth task loggings for the selected project from the Monday after the previous month's last Sunday through the selected month's last Sunday, then redirects to the invoice preview with PDF generation turned off. You can review the HTML invoice first and then use the `Generate PDF Invoice` button.
-
-Only the Redbooth comments/loggings request is restricted to the invoice date range. Task metadata may still be synced project-wide first, because comments are fetched per task and older tasks may still have comments inside the invoice period.
-
-The form values can be overridden in the UI or configured through `.env`:
-
-    AUTO_INVOICE_ENABLED='0'
-    AUTO_INVOICE_PROJECT_NAME='PROJECT_NAME'
-    AUTO_INVOICE_USER_NAME='USER_NAME'
-    AUTO_INVOICE_HOURLY_RATE='HOURLY_RATE'
-    AUTO_INVOICE_BASE_INVOICE_NO='BASE_INVOICE_NO'
-    AUTO_INVOICE_BASE_MONTH='BASE_INVOICE_MONTH'
-    AUTO_INVOICE_BASE_YEAR='BASE_INVOICE_YEAR'
-    AUTO_INVOICE_SYNC_TASKS='1'
-
-`AUTO_INVOICE_BASE_INVOICE_NO`, `AUTO_INVOICE_BASE_MONTH`, and `AUTO_INVOICE_BASE_YEAR` are used to calculate the invoice number for the selected invoice month. For example, if the base invoice number is `154` for April 2026, then May 2026 becomes `155`.
-
-Project lookup is tolerant of spacing and punctuation differences. For example, a configured value like `CX:CE` can match a stored project named `CX: CE`.
-
-The auto invoice route redirects to `/generate-invoice` with `generatePdf=0` and includes `invoiceProject`, so the preview only includes the selected project's loggings. The preview page's `Generate PDF Invoice` button then calls the same route with `generatePdf=1`.
-
-#### Invoice Custom Item
-
-If you want to add a custom item to the invoice with text and amount value then you need to pass two extra paramters to do that i.e. `customItem` & `customValue`. Multiple custom items adding is also supported just keep chaining them like given below:
-
-Single Custom Item:
-
-    http://localhost:3000/generate-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&invoiceNo=120&customItem=customItemHere&customValue=100
-
-Multiple Custom Items:
-
-    http://localhost:3000/generate-invoice?userId=123456&year=2023&month=6&hourlyRate=1.03&invoiceNo=120&customItem=customItemNo1&customValue=100&customItem=customItemNo2&customValue=200
+- **MySQL connection refused:** Check that the MySQL/MariaDB server is running and that `MYSQL_HOST` and `MYSQL_PORT` match its host port mapping. In this workspace, `ce_mysqldb_container` uses port `28301`.
+- **Unknown database:** Create `MYSQL_DATABASE` before starting the app.
+- **Foreign-key setup fails:** The startup account needs permission to alter tables and add constraints. Missing task/project references must be corrected by syncing the missing Redbooth parent records before restarting.
+- **Redbooth authorization fails:** Check the client ID, client secret, and exact redirect URI. The app must be reachable at the configured callback URL.
+- **Redbooth returns `429 Retry later`:** Increase request spacing or retry limits in `.env`. The sync uses backoff and retries failed logging fetches.
+- **PDF generation cannot find Chrome:** Install Puppeteer's Chrome with `npx puppeteer browsers install chrome`, or set `PUPPETEER_EXECUTABLE_PATH`.
