@@ -54,6 +54,7 @@ test("missing database gives a recovery command without creating it automaticall
     assert.equal(error.cause, cause);
     assert.match(error.message, /test_timesheets/);
     assert.match(error.message, /npm run db:init/);
+    assert.match(error.message, /npm run db:restore -- --latest/);
     assert.match(error.message, /npm start/);
     assert.match(error.message, /empty database/);
     return true;

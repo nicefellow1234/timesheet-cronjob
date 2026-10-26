@@ -192,7 +192,7 @@ const getConnectionOptions = () => ({
 const withConnectionHelp = (error) => {
   let message;
   if (error.code === "ER_BAD_DB_ERROR") {
-    message = `MySQL database ${JSON.stringify(getDatabaseName())} does not exist. Check MYSQL_DATABASE in .env. To create an empty database and initialize its tables, run: npm run db:init\nThen start the app with: npm start`;
+    message = `MySQL database ${JSON.stringify(getDatabaseName())} does not exist. Check MYSQL_DATABASE in .env. To create an empty database and initialize its tables, run: npm run db:init\nTo recover a saved backup, list backups with: npm run db:backups\nRestore the latest backup with: npm run db:restore -- --latest\nThen start the app with: npm start`;
   } else if (error.code === "ECONNREFUSED") {
     const { host, port } = getConnectionOptions();
     message = `Cannot connect to MySQL at ${host}:${port}. Start the MySQL server and check MYSQL_HOST and MYSQL_PORT in .env. If using Docker or WSL, check that MySQL is reachable from the environment running Node.js.`;
@@ -439,6 +439,8 @@ const getLoggingsByUserId = async (rbUserId) => {
 };
 
 module.exports = {
+  getDatabaseName,
+  getConnectionOptions,
   connectDb,
   initializeDb,
   closeDb,

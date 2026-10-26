@@ -7,6 +7,9 @@
     "start": "node app.js",
     "dev": "nodemon app.js",
     "db:init": "node scripts/init-db.js",
+    "db:backup": "node scripts/db-backups.js backup",
+    "db:backups": "node scripts/db-backups.js list",
+    "db:restore": "node scripts/db-backups.js restore",
     "test": "node --test"
   },
   "author": "",
