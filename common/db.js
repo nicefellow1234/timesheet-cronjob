@@ -175,22 +175,64 @@ const assertNoOrphanedProjectOrTaskReferences = async (connection) => {
   }
 };
 
+const getDatabaseName = () => {
+  if (!process.env.MYSQL_DATABASE) {
+    throw new Error("Set MYSQL_DATABASE in .env before initializing or starting the app.");
+  }
+  return process.env.MYSQL_DATABASE;
+};
+
+const getConnectionOptions = () => ({
+  host: process.env.MYSQL_HOST || "127.0.0.1",
+  port: Number.parseInt(process.env.MYSQL_PORT || "3306", 10),
+  user: process.env.MYSQL_USER || "root",
+  password: process.env.MYSQL_PASSWORD || ""
+});
+
+const withConnectionHelp = (error) => {
+  let message;
+  if (error.code === "ER_BAD_DB_ERROR") {
+    message = `MySQL database ${JSON.stringify(getDatabaseName())} does not exist. Check MYSQL_DATABASE in .env. To create an empty database and initialize its tables, run: npm run db:init\nThen start the app with: npm start`;
+  } else if (error.code === "ECONNREFUSED") {
+    const { host, port } = getConnectionOptions();
+    message = `Cannot connect to MySQL at ${host}:${port}. Start the MySQL server and check MYSQL_HOST and MYSQL_PORT in .env. If using Docker or WSL, check that MySQL is reachable from the environment running Node.js.`;
+  } else {
+    return error;
+  }
+  return Object.assign(new Error(message, { cause: error }), { code: error.code });
+};
+
+const initializeDb = async () => {
+  const database = getDatabaseName();
+  let connection;
+  try {
+    // Connect without selecting the database, since it may not exist yet.
+    connection = await mysql.createConnection(getConnectionOptions());
+    await connection.query(
+      `CREATE DATABASE IF NOT EXISTS ${mysql.escapeId(database, true)} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    );
+  } catch (error) {
+    throw withConnectionHelp(error);
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
+  }
+
+  await connectDb();
+};
+
 const connectDb = async () => {
   if (pool) {
     return;
   }
 
-  if (!process.env.MYSQL_DATABASE) {
-    throw new Error("MYSQL_DATABASE must be set before starting the app.");
-  }
+  const database = getDatabaseName();
 
   addLog("Connecting to MySQL.");
   const nextPool = mysql.createPool({
-    host: process.env.MYSQL_HOST || "127.0.0.1",
-    port: Number.parseInt(process.env.MYSQL_PORT || "3306", 10),
-    user: process.env.MYSQL_USER || "root",
-    password: process.env.MYSQL_PASSWORD || "",
-    database: process.env.MYSQL_DATABASE,
+    ...getConnectionOptions(),
+    database,
     waitForConnections: true,
     connectionLimit: Number.parseInt(process.env.MYSQL_CONNECTION_LIMIT || "10", 10),
     queueLimit: 0,
@@ -216,7 +258,7 @@ const connectDb = async () => {
     addLog("MySQL connected and tables are ready.");
   } catch (error) {
     await nextPool.end();
-    throw error;
+    throw withConnectionHelp(error);
   }
 };
 
@@ -398,6 +440,7 @@ const getLoggingsByUserId = async (rbUserId) => {
 
 module.exports = {
   connectDb,
+  initializeDb,
   closeDb,
   saveRecord,
   getProjects,
